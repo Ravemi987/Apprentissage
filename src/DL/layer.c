@@ -1,7 +1,5 @@
 #include "layer.h"
 
-typedef struct s_dl_activation_function ActivationFunction;
-
 
 struct s_dl_layer {
     int featuresNumber;
@@ -37,6 +35,7 @@ void scanActivationFunction(Layer *l, char *activationFun) {
 }
 
 
+// On peut faire un memcpy
 void saveActivations(Layer *l, double *inputs, int batchSize) {
     for (int batch = 0; batch < batchSize; ++batch) {
         for (int neuron = 0; neuron < l->featuresNumber; ++neuron) {
@@ -57,27 +56,27 @@ void initWeights(Layer *l) {
 }
 
 
-double *getWeights(Layer *l) {
+double *layerGetWeights(Layer *l) {
     return l->weights;
 }
 
 
-double *getBiases(Layer *l) {
+double *layerGetBiases(Layer *l) {
     return l->biases;
 }
 
 
-int getFeaturesNumber(Layer *l) {
+int layerGetFeaturesNumber(Layer *l) {
     return l->featuresNumber;
 }
 
 
-int getNeuronsNumber(Layer *l) {
+int layerGetNeuronsNumber(Layer *l) {
     return l->neuronsNumber;
 }
 
 
-Layer * createLayer(int nbFeatures, int nbNeurons, char *activationFun, int maxBatchSize) {
+Layer *layerCreate(int nbFeatures, int nbNeurons, char *activationFun, int maxBatchSize) {
     // A appeler plutôt 1 fois au début
     srand(time(NULL));
 
@@ -109,20 +108,22 @@ Layer * createLayer(int nbFeatures, int nbNeurons, char *activationFun, int maxB
 }
 
 
-Layer *initLayer(double *initialWeights, double *initialBiases, int nbFeatures, int nbNeurons, 
+Layer *layerInitWithWeights(double *initialWeights, double *initialBiases, int nbFeatures, int nbNeurons, 
                 char *activationFun, int maxBatchSize) {
     srand(time(NULL));
 
     Layer *l = (Layer *)malloc(sizeof(struct s_dl_layer));
     if (l == NULL) return NULL;
+    scanActivationFunction(l, activationFun);
     
     l->maxBatchSize = maxBatchSize;
     l->featuresNumber = nbFeatures;
     l->neuronsNumber = nbNeurons;
-    l->weights = initialWeights;
-    l->biases = initialBiases;
-
-    scanActivationFunction(l, activationFun);
+    
+    l->weights = malloc(nbNeurons * nbFeatures * sizeof(double));
+    memcpy(l->weights, initialWeights, nbFeatures * nbNeurons);
+    l->biases = malloc(nbNeurons * sizeof(double));
+    memcpy(l->biases, initialBiases, nbNeurons);
 
     l->activationsBuffer = malloc(maxBatchSize * nbFeatures * sizeof(double));
     l->linearInputs = malloc(maxBatchSize * nbNeurons * sizeof(double));
@@ -131,8 +132,8 @@ Layer *initLayer(double *initialWeights, double *initialBiases, int nbFeatures, 
     l->activationDerivatives = malloc(maxBatchSize * nbNeurons * sizeof(double));
     l->layerGradients = malloc(maxBatchSize * nbNeurons * sizeof(double));
 
-    l->weightsGradients = (double *)malloc(l->neuronsNumber * l->featuresNumber * sizeof(double));
-    l->biasesGradients = (double *)malloc(l->neuronsNumber * sizeof(double));
+    l->weightsGradients = (double *)malloc(nbNeurons * nbFeatures * sizeof(double));
+    l->biasesGradients = (double *)malloc(nbNeurons * sizeof(double));
 
     return l;
 }
@@ -152,16 +153,7 @@ void linearCombination(Layer *l, double *inputs, int batchSize) {
 }
 
 
-double *layerForwardPropagation(Layer *l, double *inputs) {
-    linearCombination(l, inputs, 1);
-
-    l->activationFunction->applyMatrix(l->linearInputs, l->outputsBuffer, 1, l->neuronsNumber);
-
-    return l->outputsBuffer;
-}
-
-
-double *layerForwardPropagationBatch(Layer *l, double *inputs, int batchSize) {
+double *layerForwardPropagation(Layer *l, double *inputs, int batchSize) {
     saveActivations(l, inputs, batchSize);
     linearCombination(l, inputs, batchSize);
 
@@ -179,7 +171,7 @@ void updateWeightsGradients(Layer *l, int neuron, double nextGradientValue, int 
     }
 }
 
-double *layerComputeGradientsBatch(Layer *l, LossFunction *lf, double *outputs, double *expectedOutputs, int batchSize) {
+double *layerComputeGradients(Layer *l, LossFunction *lf, double *outputs, double *expectedOutputs, int batchSize) {
     l->activationFunction->derivativeMatrix(l->linearInputs, l->activationDerivatives, batchSize, l->neuronsNumber);
     lf->derivativeMatrix(l->layerGradients, outputs, expectedOutputs, batchSize, l->neuronsNumber);
 
@@ -197,7 +189,7 @@ double *layerComputeGradientsBatch(Layer *l, LossFunction *lf, double *outputs, 
 }
 
 
-double *layerBackPropagationBatch(Layer *l, Layer *nextLayer, double *nextGradients, int batchSize) {
+double *layerBackPropagation(Layer *l, Layer *nextLayer, double *nextGradients, int batchSize) {
     l->activationFunction->derivativeMatrix(l->linearInputs, l->activationDerivatives, batchSize, l->neuronsNumber);
 
     for (int batch = 0; batch < batchSize; batch++) {

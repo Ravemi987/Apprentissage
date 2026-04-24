@@ -14,25 +14,23 @@
 
 typedef struct s_dl_layer Layer;
 
-Layer * createLayer(int nbFeatures, int nbNeurons, char *activationFun, int maxBatchSize);
+Layer * layerCreate(int nbFeatures, int nbNeurons, char *activationFun, int maxBatchSize);
 
-Layer *initLayer(double *initialWeights, double *initialBiases, int nbFeatures, int nbNeurons, char *activationFun, int maxBatchSize);
+Layer *layerInitWithWeights(double *initialWeights, double *initialBiases, int nbFeatures, int nbNeurons, char *activationFun, int maxBatchSize);
 
-double *getWeights(Layer *l);
+double *layerGetWeights(Layer *l);
 
-double *getBiases(Layer *l);
+double *layerGetBiases(Layer *l);
 
-int getFeaturesNumber(Layer *l);
+int layerGetFeaturesNumber(Layer *l);
 
-int getNeuronsNumber(Layer *l);
+int layerGetNeuronsNumber(Layer *l);
 
-double *layerForwardPropagation(Layer *l, double *inputs);
+double *layerForwardPropagation(Layer *l, double *inputs, int batchSize);
 
-double *layerForwardPropagationBatch(Layer *l, double *inputs, int batchSize);
+double *layerComputeGradients(Layer *l, LossFunction *lf, double *outputs, double *expectedOutputs, int batchSize);
 
-double *layerComputeGradientsBatch(Layer *l, LossFunction *lf, double *outputs, double *expectedOutputs, int batchSize);
-
-double *layerBackPropagationBatch(Layer *l, Layer *nextLayer, double *nextGradients, int batchSize);
+double *layerBackPropagation(Layer *l, Layer *nextLayer, double *nextGradients, int batchSize);
 
 void layerUpdateWeights(Layer *l, double learningRate, int datasetSize);
 
