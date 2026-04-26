@@ -3,7 +3,7 @@
 # ==========================================
 
 CC = gcc
-CFLAGS = -Wall -Wextra -g -O2 -Iinclude
+CFLAGS = -fopenmp -Wall -Wextra -g -O2 -Iinclude
 LIBS = -lm
 
 # Dossiers

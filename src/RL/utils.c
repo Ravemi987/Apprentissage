@@ -24,6 +24,14 @@ float arrayMax(float *a, int n) {
     return m;
 }
 
+double arrayMaxDouble(double *a, int n) {
+    double m = a[0];
+    for (int i = 1; i < n; ++i) {
+        if (a[i] > m) m = a[i];
+    }
+    return m;
+}
+
 int arrayMaxIndex(float *a, int n) {
     float m = a[0];
     int index = 0;

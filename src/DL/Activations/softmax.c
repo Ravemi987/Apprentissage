@@ -4,17 +4,19 @@
 
 
 static double softmaxApply(double z) {
+    if (z) {}
     return 0;
 }
 
 
 static double softmaxDerivative(double z) {
+    if (z) {}
     return 0;
 }
 
 
 static void softmaxApplyArray(double *z, double *output, int size) {
-    double arrMax = arrayMax(z, size);
+    double arrMax = arrayMaxDouble(z, size);
     double max = arrMax > 0 ? arrMax : 0.01;
     double sum = 0;
 

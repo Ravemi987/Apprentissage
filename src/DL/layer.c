@@ -27,7 +27,7 @@ struct s_dl_layer {
 };
 
 
-void scanActivationFunction(Layer *l, char *activationFun) {
+static void scanActivationFunction(Layer *l, char *activationFun) {
     if (strcmp(activationFun, "sigmoid") == 0) l->activationFunction = getSigmoidActivation();
     else if (strcmp(activationFun, "relu") == 0) l->activationFunction = getReLUActivation();
     else if (strcmp(activationFun, "silu") == 0) l->activationFunction = getSiLUActivation();
@@ -36,7 +36,7 @@ void scanActivationFunction(Layer *l, char *activationFun) {
 
 
 // On peut faire un memcpy
-void saveActivations(Layer *l, double *inputs, int batchSize) {
+static void saveActivations(Layer *l, double *inputs, int batchSize) {
     for (int batch = 0; batch < batchSize; ++batch) {
         for (int neuron = 0; neuron < l->featuresNumber; ++neuron) {
             l->activationsBuffer[batch * l->featuresNumber + neuron] = inputs[batch * l->featuresNumber + neuron];
@@ -45,7 +45,7 @@ void saveActivations(Layer *l, double *inputs, int batchSize) {
 }
 
 
-void initWeights(Layer *l) {
+static void initWeights(Layer *l) {
     for (int neuron = 0; neuron < l->neuronsNumber; ++neuron) {
         l->biases[neuron] = ((double)rand() / (double)RAND_MAX) * 2.0 - 1.0;
 
@@ -77,9 +77,6 @@ int layerGetNeuronsNumber(Layer *l) {
 
 
 Layer *layerCreate(int nbFeatures, int nbNeurons, char *activationFun, int maxBatchSize) {
-    // A appeler plutôt 1 fois au début
-    srand(time(NULL));
-
     Layer *l = (Layer *)malloc(sizeof(struct s_dl_layer));
     if (l == NULL) return NULL;
 
@@ -99,8 +96,8 @@ Layer *layerCreate(int nbFeatures, int nbNeurons, char *activationFun, int maxBa
     l->weights = (double *)malloc(nbNeurons * nbFeatures * sizeof(double));
     l->biases = (double *)malloc(nbNeurons * sizeof(double));
 
-    l->weightsGradients = (double *)malloc(nbNeurons * nbFeatures * sizeof(double));
-    l->biasesGradients = (double *)malloc(nbNeurons * sizeof(double));
+    l->weightsGradients = (double *)calloc(nbNeurons * nbFeatures, sizeof(double));
+    l->biasesGradients = (double *)calloc(nbNeurons, sizeof(double));
 
     initWeights(l);
 
@@ -110,8 +107,6 @@ Layer *layerCreate(int nbFeatures, int nbNeurons, char *activationFun, int maxBa
 
 Layer *layerInitWithWeights(double *initialWeights, double *initialBiases, int nbFeatures, int nbNeurons, 
                 char *activationFun, int maxBatchSize) {
-    srand(time(NULL));
-
     Layer *l = (Layer *)malloc(sizeof(struct s_dl_layer));
     if (l == NULL) return NULL;
     scanActivationFunction(l, activationFun);
@@ -121,9 +116,10 @@ Layer *layerInitWithWeights(double *initialWeights, double *initialBiases, int n
     l->neuronsNumber = nbNeurons;
     
     l->weights = malloc(nbNeurons * nbFeatures * sizeof(double));
-    memcpy(l->weights, initialWeights, nbFeatures * nbNeurons);
+    memcpy(l->weights, initialWeights, nbFeatures * nbNeurons * sizeof(double));
+
     l->biases = malloc(nbNeurons * sizeof(double));
-    memcpy(l->biases, initialBiases, nbNeurons);
+    memcpy(l->biases, initialBiases, nbNeurons * sizeof(double));
 
     l->activationsBuffer = malloc(maxBatchSize * nbFeatures * sizeof(double));
     l->linearInputs = malloc(maxBatchSize * nbNeurons * sizeof(double));
@@ -132,14 +128,15 @@ Layer *layerInitWithWeights(double *initialWeights, double *initialBiases, int n
     l->activationDerivatives = malloc(maxBatchSize * nbNeurons * sizeof(double));
     l->layerGradients = malloc(maxBatchSize * nbNeurons * sizeof(double));
 
-    l->weightsGradients = (double *)malloc(nbNeurons * nbFeatures * sizeof(double));
-    l->biasesGradients = (double *)malloc(nbNeurons * sizeof(double));
+    l->weightsGradients = (double *)calloc(nbNeurons * nbFeatures, sizeof(double));
+    l->biasesGradients = (double *)calloc(nbNeurons, sizeof(double));
 
     return l;
 }
 
 
-void linearCombination(Layer *l, double *inputs, int batchSize) {
+static void linearCombination(Layer *l, double *inputs, int batchSize) {
+    #pragma omp parallel for collapse(2)
     for (int batch = 0; batch < batchSize; ++batch) {
         for (int neuron = 0; neuron < l->neuronsNumber; ++neuron) {
             l->linearInputs[batch * l->neuronsNumber + neuron] = linear(
@@ -163,7 +160,7 @@ double *layerForwardPropagation(Layer *l, double *inputs, int batchSize) {
 }
 
 
-void updateWeightsGradients(Layer *l, int neuron, double nextGradientValue, int batchIndex) {
+static void updateWeightsGradients(Layer *l, int neuron, double nextGradientValue, int batchIndex) {
     for (int feature = 0; feature < l->featuresNumber; feature++) {
         l->weightsGradients[neuron * l->featuresNumber + feature] += 
         l->activationsBuffer[batchIndex * l->featuresNumber + feature] * 
@@ -171,12 +168,15 @@ void updateWeightsGradients(Layer *l, int neuron, double nextGradientValue, int 
     }
 }
 
+
 double *layerComputeGradients(Layer *l, LossFunction *lf, double *outputs, double *expectedOutputs, int batchSize) {
     l->activationFunction->derivativeMatrix(l->linearInputs, l->activationDerivatives, batchSize, l->neuronsNumber);
     lf->derivativeMatrix(l->layerGradients, outputs, expectedOutputs, batchSize, l->neuronsNumber);
 
-    for (int batch = 0; batch < batchSize; batch++) {
-        for (int neuron = 0; neuron < l->neuronsNumber; neuron++) {
+    // On inverse les boucles
+    #pragma omp parallel for
+    for (int neuron = 0; neuron < l->neuronsNumber; neuron++) {
+        for (int batch = 0; batch < batchSize; batch++) {
             int index = batch * l->neuronsNumber + neuron;
 
             l->layerGradients[index] = l->layerGradients[index] * l->activationDerivatives[index];
@@ -192,8 +192,10 @@ double *layerComputeGradients(Layer *l, LossFunction *lf, double *outputs, doubl
 double *layerBackPropagation(Layer *l, Layer *nextLayer, double *nextGradients, int batchSize) {
     l->activationFunction->derivativeMatrix(l->linearInputs, l->activationDerivatives, batchSize, l->neuronsNumber);
 
-    for (int batch = 0; batch < batchSize; batch++) {
-        for (int neuron = 0; neuron < l->neuronsNumber; neuron++) {
+    // On inverse les boucles
+    #pragma omp parallel for
+    for (int neuron = 0; neuron < l->neuronsNumber; neuron++ ) {
+        for (int batch = 0; batch < batchSize; batch++) {
             double currentGrad = 0.0;
 
             for (int nextNeuron = 0; nextNeuron < nextLayer->neuronsNumber; nextNeuron++) {
@@ -208,6 +210,7 @@ double *layerBackPropagation(Layer *l, Layer *nextLayer, double *nextGradients, 
             l->layerGradients[index] = currentGrad * l->activationDerivatives[index];
 
             updateWeightsGradients(l, neuron, l->layerGradients[index], batch);
+            
             l->biasesGradients[neuron] += l->layerGradients[index];
         }
     }
@@ -217,6 +220,7 @@ double *layerBackPropagation(Layer *l, Layer *nextLayer, double *nextGradients, 
 
 
 void layerUpdateWeights(Layer *l, double learningRate, int datasetSize) {
+    #pragma omp parallel for collapse(2)
     for (int neuron = 0; neuron < l->neuronsNumber; neuron++) {
         for (int feature = 0; feature < l->featuresNumber; feature++) {
             int index = neuron * l->featuresNumber + feature;
@@ -224,7 +228,26 @@ void layerUpdateWeights(Layer *l, double learningRate, int datasetSize) {
             l->weights[index] -= learningRate * (l->weightsGradients[index] / datasetSize);
             l->weightsGradients[index] = 0.0;
         }
+    }
+    // On separe les boucles
+    #pragma omp parallel for    
+    for (int neuron = 0; neuron < l->neuronsNumber; neuron++) {
         l->biases[neuron] -= learningRate * (l->biasesGradients[neuron] / datasetSize);
         l->biasesGradients[neuron] = 0.0;
     }
+}
+
+
+void layerDestroy(Layer **l) {
+    free((*l)->activationFunction);
+    free((*l)->activationsBuffer);
+    free((*l)->linearInputs);
+    free((*l)->outputsBuffer);
+    free((*l)->activationDerivatives);
+    free((*l)->layerGradients);
+    free((*l)->weights );
+    free((*l)->biases);
+    free((*l)->weightsGradients);
+    free((*l)->biasesGradients);
+    *l = NULL;
 }

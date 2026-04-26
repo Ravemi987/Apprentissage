@@ -7,6 +7,7 @@
 #include <string.h>
 #include <math.h>
 #include <time.h>
+#include <omp.h>
 
 #include "utils.h"
 #include "activation.h"
@@ -14,8 +15,10 @@
 
 typedef struct s_dl_layer Layer;
 
+// Alloue de la mémoire !
 Layer * layerCreate(int nbFeatures, int nbNeurons, char *activationFun, int maxBatchSize);
 
+// Alloue de la mémoire !
 Layer *layerInitWithWeights(double *initialWeights, double *initialBiases, int nbFeatures, int nbNeurons, char *activationFun, int maxBatchSize);
 
 double *layerGetWeights(Layer *l);
@@ -33,5 +36,7 @@ double *layerComputeGradients(Layer *l, LossFunction *lf, double *outputs, doubl
 double *layerBackPropagation(Layer *l, Layer *nextLayer, double *nextGradients, int batchSize);
 
 void layerUpdateWeights(Layer *l, double learningRate, int datasetSize);
+
+void layerDestroy(Layer **l);
 
 #endif
