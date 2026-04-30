@@ -2,32 +2,39 @@
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Drone Simulation ASR</title>
-    <!-- Lien vers le fichier CSS externe -->
+    <title>GCS - Drone ASR Simulation</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-
     <div class="header">
-        <h1>Moniteur de Vol</h1>
-        <p>Gérez le drone depuis le terminal C. Les liens colorent la qualité du signal.</p>
+        <h1>Navigation de Drone</h1>
+        <p>Simulation 3D. Relâchez la touche pour couper les moteurs.</p>
     </div>
     
-    <!-- Conteneur principal -->
-    <div class="simulation-container">
-        <canvas id="simCanvas" width="800" height="600"></canvas>
+    <!-- Les vues sont maintenant empilées -->
+    <div class="dashboard">
+        <!-- Vue de Profil (Altitude : X, Y) -->
+        <div class="view-panel">
+            <h3>Élévation : Vue de Profil (Axe X / Y)</h3>
+            <canvas id="canvasXY" width="800" height="400"></canvas>
+        </div>
         
-        <!-- Petite légende pour comprendre les couleurs -->
-        <div class="legend">
-            <h3>Qualité du Signal</h3>
-            <div class="legend-item"><span class="color-box" style="background: #a6e3a1;"></span> Excellent (Proche)</div>
-            <div class="legend-item"><span class="color-box" style="background: #f9e2af;"></span> Moyen</div>
-            <div class="legend-item"><span class="color-box" style="background: #f38ba8;"></span> Faible (Loin)</div>
+        <!-- Vue de Dessus (Navigation : X, Z) -->
+        <div class="view-panel">
+            <h3>Navigation : Vue de Dessus (Axe X / Z)</h3>
+            <canvas id="canvasXZ" width="800" height="400"></canvas>
         </div>
     </div>
 
-    <!-- Lien vers le fichier JS externe -->
+    <div class="legend">
+        <h3>Qualité du Signal Global</h3>
+        <div class="legend-items">
+            <div class="legend-item"><span class="color-box" style="background: #a6e3a1;"></span> Excellent</div>
+            <div class="legend-item"><span class="color-box" style="background: #f9e2af;"></span> Moyen</div>
+            <div class="legend-item"><span class="color-box" style="background: #f38ba8;"></span> Faible</div>
+        </div>
+    </div>
+
     <script src="app.js"></script>
 </body>
 </html>

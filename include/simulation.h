@@ -22,24 +22,34 @@
 
 
 typedef struct {
-    double x, y;        // Position
-    double vx, vy;      // Vitesse
-    double theta;       // Angle d'inclinaison
-    double v_theta;     // Vitesse angulaire
+    // On simule de la 3D en 2D
+    double x, y, z;        // Position
+    double vx, vy, vz;     // Vitesse
+    double theta_roll;     // Inclinaison Gauche/Droite (gère le déplacement sur X)
+    double theta_pitch;    // Inclinaison Avant/Arrière (gère le déplacement sur Z)
+    double v_roll;         // Vitesse angulaire sur X
+    double v_pitch;        // Votesse angulaire sur Z
 } Drone;
 
 typedef struct {
-    double x, y;
+    double x, y, z;
 } User;
 
 typedef struct {
     Drone *drone;
     User *users;
     int numUsers;
-    double width, height;    // Dimensions de la carte
+    double width, height, depth;    // Dimensions de la carte
 } World;
 
-enum engineThrust {ENGINE_NONE, ENGINE_LEFT, ENGINE_RIGHT, ENGINE_FULL};
+enum engineThrust {
+    ENGINE_NONE,
+    ENGINE_FULL,
+    ENGINE_LEFT, 
+    ENGINE_RIGHT,
+    ENGINE_FORWARD,
+    ENGINE_BACKWARD
+};
 
 
 void physicsStep(World *w, int action, double dt);
