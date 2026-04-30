@@ -1,0 +1,9 @@
+1. Ouvrir un terminal et se placer dans web/
+
+2. Lancer le mini-serveur local (Linux / MacOS) : python3 -m http.server 8000
+
+3. Ouvrir le navigateur à l'adresse : http://localhost:8000
+
+4. Ouvrir un second terminal, se placer à la racine : Github/Apprentissage/
+make
+./simu
