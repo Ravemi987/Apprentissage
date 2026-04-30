@@ -31,9 +31,11 @@ typedef struct {
     double v_pitch;        // Votesse angulaire sur Z
 } Drone;
 
+
 typedef struct {
     double x, y, z;
 } User;
+
 
 typedef struct {
     Drone *drone;
@@ -41,6 +43,7 @@ typedef struct {
     int numUsers;
     double width, height, depth;    // Dimensions de la carte
 } World;
+
 
 enum engineThrust {
     ENGINE_NONE,
