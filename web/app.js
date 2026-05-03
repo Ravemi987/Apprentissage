@@ -43,18 +43,20 @@ function drawGridProfile() {
     ctxProfile.strokeStyle = "#45475a"; ctxProfile.lineWidth = 0.5;
     ctxProfile.font = "11px 'Segoe UI'"; ctxProfile.fillStyle = "#bac2de";
     
-    // Lignes verticales (Axe Y physique, Gauche/Droite)
-    for (let y = 0; y <= physSpanY; y += gridSpacing) {
-        let px = getProfileX(y);
+    // Lignes verticales (Axe Gauche/Droite visuel : on force 0 à gauche et max à droite)
+    for (let i = 0; i <= physSpanY; i += gridSpacing) {
+        let px = (i / physSpanY) * canvasProfile.width;
         ctxProfile.beginPath(); ctxProfile.moveTo(px, 0); ctxProfile.lineTo(px, canvasProfile.height); ctxProfile.stroke();
-        ctxProfile.fillText(y + "m", px + 5, canvasProfile.height - 10);
+        ctxProfile.fillText(i + "m", px + 5, canvasProfile.height - 10);
     }
-    // Lignes horizontales (Altitude Z)
+
+    // Lignes horizontales (Altitude Z : 0 en bas, max en haut)
     for (let z = 0; z <= physSpanZ; z += gridSpacing) {
         let py = getProfileY(z);
         ctxProfile.beginPath(); ctxProfile.moveTo(0, py); ctxProfile.lineTo(canvasProfile.width, py); ctxProfile.stroke();
         ctxProfile.fillText(z + "m", 10, py - 5);
     }
+
     ctxProfile.font = "bold 13px 'Segoe UI'"; ctxProfile.fillStyle = "#89b4fa";
     ctxProfile.fillText("Z (Altitude)", 15, 25);
     ctxProfile.fillText("Y (Gauche/Droite)", canvasProfile.width - 120, canvasProfile.height - 15);
@@ -64,18 +66,20 @@ function drawGridTop() {
     ctxTop.strokeStyle = "#45475a"; ctxTop.lineWidth = 0.5;
     ctxTop.font = "11px 'Segoe UI'"; ctxTop.fillStyle = "#bac2de";
     
-    // Lignes verticales (Axe Y physique, Gauche/Droite)
-    for (let y = 0; y <= physSpanY; y += gridSpacing) {
-        let px = getTopX(y);
+    // Lignes verticales (Axe Gauche/Droite visuel : on force 0 à gauche et max à droite)
+    for (let i = 0; i <= physSpanY; i += gridSpacing) {
+        let px = (i / physSpanY) * canvasTop.width;
         ctxTop.beginPath(); ctxTop.moveTo(px, 0); ctxTop.lineTo(px, canvasTop.height); ctxTop.stroke();
-        ctxTop.fillText(y + "m", px + 5, canvasTop.height - 10);
+        ctxTop.fillText(i + "m", px + 5, canvasTop.height - 10);
     }
-    // Lignes horizontales (Axe X physique, Avant/Arrière)
+
+    // Lignes horizontales (Axe X physique, Avant/Arrière : 0 en bas, max en haut)
     for (let x = 0; x <= physSpanX; x += gridSpacing) {
         let py = getTopY(x);
         ctxTop.beginPath(); ctxTop.moveTo(0, py); ctxTop.lineTo(canvasTop.width, py); ctxTop.stroke();
         ctxTop.fillText(x + "m", 10, py - 5);
     }
+
     ctxTop.font = "bold 13px 'Segoe UI'"; ctxTop.fillStyle = "#89b4fa";
     ctxTop.fillText("X (Avant/Arrière)", 15, 25);
     ctxTop.fillText("Y (Gauche/Droite)", canvasTop.width - 120, canvasTop.height - 15);
