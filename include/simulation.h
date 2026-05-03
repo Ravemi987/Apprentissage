@@ -68,7 +68,9 @@ enum EngineAction {
     ENGINE_PITCH_LEFT = 2,
     ENGINE_PITCH_RIGHT = 3,
     ENGINE_ROLL_LEFT = 4,
-    ENGINE_ROLL_RIGHT = 5
+    ENGINE_ROLL_RIGHT = 5,
+    ENGINE_YAW_LEFT = 6,
+    ENGINE_YAW_RIGHT = 7
 };
 
 

@@ -61,6 +61,8 @@ void handleCommand(Drone *d, int action) {
     if (action == ENGINE_PITCH_RIGHT)   d->target_pitch = -ANGLE_LIMIT;  // Pitch arrière
     if (action == ENGINE_ROLL_LEFT)     d->target_roll = -ANGLE_LIMIT;   // Roll gauche
     if (action == ENGINE_ROLL_RIGHT)    d->target_roll = ANGLE_LIMIT;    // Roll droite
+    if (action == ENGINE_YAW_LEFT)      d->target_yaw -= 0.05; // Yaw gauche
+    if (action == ENGINE_YAW_RIGHT)     d->target_yaw += 0.05; // Yaw droite
 }
 
 

@@ -29,7 +29,7 @@ int main() {
     World w = { .drone = &d, .users = users, .numUsers = 2, .width = 200, .height = 100, .depth = 100 };
 
     setNonBlockingMode(1);
-    printf("Contrôles : [z/s] Altitude | [q/d] Roll | [a/e] Pitch | [x] Quitter\n");
+    printf("Contrôles : [z/s] Alt | [q/d] Roll | [a/e] Pitch | [r/f] Yaw | [x] Quitter\n");
 
     char ch;
     int current_action = -1; 
@@ -44,6 +44,8 @@ int main() {
             else if (ch == 'd') current_action = ENGINE_ROLL_RIGHT;
             else if (ch == 'a') current_action = ENGINE_PITCH_LEFT;
             else if (ch == 'e') current_action = ENGINE_PITCH_RIGHT;
+            else if (ch == 'r') current_action = ENGINE_YAW_LEFT;
+            else if (ch == 'f') current_action = ENGINE_YAW_RIGHT;
             else if (ch == 'x') running = 0;
             
             timeout = 5; 
@@ -55,7 +57,6 @@ int main() {
         } else {
             d.target_roll = 0.0;
             d.target_pitch = 0.0;
-            d.target_yaw = 0.0;
             d.target_thrust = M * G;
         }
         
