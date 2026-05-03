@@ -24,12 +24,14 @@ h3 { color: #bac2de; font-size: 16px; text-align: left; margin-top: 0; margin-bo
 }
 
 .view-panel {
+    position: relative;
     background-color: #181825;
     padding: 20px;
     border-radius: 8px;
     border: 2px solid #313244;
     box-shadow: 0 8px 32px rgba(0,0,0,0.5);
     width: 800px; /* Force la largeur pour correspondre au canvas */
+    padding-bottom: 30px;
 }
 
 canvas {
@@ -37,6 +39,7 @@ canvas {
     border: 1px solid #45475a;
     border-radius: 4px;
     display: block; /* Évite les marges fantômes */
+    cursor: crosshair;
 }
 
 .legend {

@@ -23,55 +23,53 @@ void setNonBlockingMode(int enable) {
 
 
 int main() {
-    Drone d = { .x = 100, .y = 10, .z = 50, .vx = 0, .vy = 0, .vz = 0, .theta_pitch = 0, .theta_roll = 0 };
-    User users[2] = { {40, 0, 50}, {160, 0, 50} }; 
+    // Initialisation des structutres
+    Drone d = createDrone(100.0, 50.0, 10.0);
+    User users[2] = { {40, 40, 0}, {160, 60, 0} }; 
     World w = { .drone = &d, .users = users, .numUsers = 2, .width = 200, .height = 100, .depth = 100 };
 
     setNonBlockingMode(1);
-    printf("Pilotez le drone : [q] Gauche | [d] Droite | [z] Full | [s] Rien | [x] Quitter\n");
+    printf("Contrôles : [z/s] Altitude | [q/d] Roll | [a/e] Pitch | [x] Quitter\n");
 
     char ch;
-    int action = ENGINE_NONE;
+    int current_action = -1; 
     int running = 1;
-    int timeout = 0; // Compteur pour relâcher automatiquement la touche
+    int timeout = 0;
 
     while (running) {
-        // Lecture de la touche
         if (read(STDIN_FILENO, &ch, 1) > 0) {
-            if (ch == 'q') action = ENGINE_LEFT;
-            else if (ch == 'd') action = ENGINE_RIGHT;
-            else if (ch == 'z') action = ENGINE_FULL;
-            else if (ch == 's') action = ENGINE_NONE;
-            else if (ch == 'f') action = ENGINE_FORWARD;
-            else if (ch == 'b') action = ENGINE_BACKWARD;
+            if (ch == 'z') current_action = ENGINE_UP;
+            else if (ch == 's') current_action = ENGINE_DOWN;
+            else if (ch == 'q') current_action = ENGINE_ROLL_LEFT;
+            else if (ch == 'd') current_action = ENGINE_ROLL_RIGHT;
+            else if (ch == 'a') current_action = ENGINE_PITCH_LEFT;
+            else if (ch == 'e') current_action = ENGINE_PITCH_RIGHT;
             else if (ch == 'x') running = 0;
-            timeout = 30; // Maintient l'action pendant 30 frames (300 ms)
-        } else {
-            // Si aucune touche n'est pressée, on décrémente. À 0, on coupe les moteurs.
-            if (timeout > 0) timeout--;
-            else action = ENGINE_NONE; 
+            
+            timeout = 5; 
         }
 
-        // Mise à jour physique
-        physicsStep(&w, action, 0.01);
+        if (timeout > 0) {
+            handleCommand(&d, current_action);
+            timeout--;
+        } else {
+            d.target_roll = 0.0;
+            d.target_pitch = 0.0;
+            d.target_yaw = 0.0;
+            d.target_thrust = M * G;
+        }
+        
+        physicsStep(&w, DT);
 
-        // Calcul des signaux
-        double r1 = computeRSSI(&d, &users[0]);
-        double r2 = computeRSSI(&d, &users[1]);
-
-        // Affichage dynamique
-        printf("\rPos: (%.1f, %.1f, %.1f) | R: %4.1f° P: %4.1f° | RSSI1: %4.1f | RSSI2: %4.1f | Act: %d    ", 
-            d.x, d.y, d.z, d.theta_roll * 57.29, d.theta_pitch * 57.29, r1, r2, action);
+        printf("\rPos: (%.1f, %.1f, %.1f) | R:%.1f° P:%.1f° Y:%.1f° | Timeout:%d  ", 
+               d.x, d.y, d.z, d.phi*57.3, d.theta*57.3, d.psi*57.3, timeout);
         fflush(stdout);
 
-        // Export en JSON
         exportStateToJSON(&w, "web/state.json");
 
-        // Attendre 10ms (100 FPS)
         usleep(10000);
     }
 
     setNonBlockingMode(0);
-    printf("\nSimulation terminée.\n");
     return 0;
 }

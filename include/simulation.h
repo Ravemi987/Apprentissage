@@ -10,26 +10,66 @@
 
 #include "utils.h"
 
-#define GRAVITY 9.81          // G : tire vers le bas sur l'axe y
-#define DRONE_MASS 0.5        // 0.5kg
-#define ARM_LENGTH 0.15       // 0.15m : Distance entre le centre du drone et les moteurs (influence la vitesse de basculement)
-#define THRUST_UNIT 4.0       // 4.0 Newton : Force par moteur. Total: 8N > 0.5 * 9.81 = 4.9 N
-#define INERTIA 0.1           // Resistance à la rotation (pour pas que le drone tourne comme une toupie)
-#define DT 0.01               // Step de temps en secondes (s) = 100 Hz
+// NE PAS MODIFIER
+#define G 9.81  // Gravité
+#define M 2.5   // Masse du drone en kg
+#define L 0.112 // Longueur de chaque bras de levier en m
+#define DT 0.01 // Pas de temps en secondes (s) = 100 Hz
+#define Ixx 5e-3    // Moment d'inertie en kg.m2
+#define Iyy 5e-3    // Moment d'inertie en kg.m2
+#define Izz 10e-3   // Moment d'inertie en kg.m2
+#define B 1.5   // Coefficient de poussée/thrust
+#define D 1.3   // Coefficient de traînée/drag
+#define RHO 1.225 // Densité de l'air en kg/m3
+#define RADIUS 0.0635 // Rayon des hélices en m
+#define MATH_PI 3.14159265358979323846 // PI
+#define ANGLE_LIMIT 0.5 // Limite pour éviter les singularités de gimbal lock
+#define MAX_ROT 5.0 // Vitesse de rotation maximale en rad/s
+#define DRAG_COEFF (0.5 * RHO * 0.1 * D * MATH_PI * pow(RADIUS, 2)) // Coefficient de traînée aérodynamique
 
 #define SIGNAL_BASE_POWER -30.0  // -30.0 dBm : Puissance à 1m
 #define PATH_LOSS_EXPONENT 2.0   // Milieu Hertzien
 
 
 typedef struct {
-    // On simule de la 3D en 2D
-    double x, y, z;        // Position
-    double vx, vy, vz;     // Vitesse
-    double theta_roll;     // Inclinaison Gauche/Droite (gère le déplacement sur X)
-    double theta_pitch;    // Inclinaison Avant/Arrière (gère le déplacement sur Z)
-    double v_roll;         // Vitesse angulaire sur X
-    double v_pitch;        // Votesse angulaire sur Z
+    double kp;
+    double ki;
+    double kd;
+    double integral;
+    double prev_error;
+} PIDController;
+
+
+typedef struct {
+    double x, y, z; // Position
+    double x_dot, y_dot, z_dot; // Vitesse linéaire
+    double x_dot_dot, y_dot_dot, z_dot_dot; // Accélération linéaire
+    double phi, theta, psi; // Angles roll, pitch et yaw
+    double phi_dot, theta_dot, psi_dot; // Dérivées des angles
+    double p, q, r; // Vitesse angulaire
+    double p_dot, q_dot, r_dot; /// Dérivées des vitesses angulaires
+    double omega[4]; // Vitesses de rotation des moteurs
+
+    double target_thrust;
+    double target_roll;
+    double target_pitch;
+    double target_yaw;
+
+    PIDController pid_roll;
+    PIDController pid_pitch;
+    PIDController pid_yaw;
+
 } Drone;
+
+
+enum EngineAction {
+    ENGINE_UP = 0,
+    ENGINE_DOWN = 1,
+    ENGINE_PITCH_LEFT = 2,
+    ENGINE_PITCH_RIGHT = 3,
+    ENGINE_ROLL_LEFT = 4,
+    ENGINE_ROLL_RIGHT = 5
+};
 
 
 typedef struct {
@@ -45,17 +85,11 @@ typedef struct {
 } World;
 
 
-enum engineThrust {
-    ENGINE_NONE,
-    ENGINE_FULL,
-    ENGINE_LEFT, 
-    ENGINE_RIGHT,
-    ENGINE_FORWARD,
-    ENGINE_BACKWARD
-};
+Drone createDrone(double x, double y, double z);
 
+void handleCommand(Drone *d, int action);
 
-void physicsStep(World *w, int action, double dt);
+void physicsStep(World *w, double dt);
 
 double computeRSSI(Drone* d, User* u);
 

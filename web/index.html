@@ -13,16 +13,16 @@
     
     <!-- Les vues sont maintenant empilées -->
     <div class="dashboard">
-        <!-- Vue de Profil (Altitude : X, Y) -->
+        <!-- Vue de Profil (Altitude : X, Z) -->
         <div class="view-panel">
-            <h3>Élévation : Vue de Profil (Axe X / Y)</h3>
-            <canvas id="canvasXY" width="800" height="400"></canvas>
-        </div>
-        
-        <!-- Vue de Dessus (Navigation : X, Z) -->
-        <div class="view-panel">
-            <h3>Navigation : Vue de Dessus (Axe X / Z)</h3>
+            <h3>Élévation : Vue de Profil (Axe X / Z)</h3> <!-- Z est maintenant la hauteur -->
             <canvas id="canvasXZ" width="800" height="400"></canvas>
+        </div>
+
+        <!-- Vue de Dessus (Navigation : X, Y) -->
+        <div class="view-panel">
+            <h3>Navigation : Vue de Dessus (Axe X / Y)</h3> <!-- Y est maintenant la profondeur[cite: 7] -->
+            <canvas id="canvasXY" width="800" height="400"></canvas>
         </div>
     </div>
 
