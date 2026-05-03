@@ -1,22 +1,37 @@
-const canvasXZ = document.getElementById('canvasXZ'); // Vue de Profil (Elevation : X / Z)
-const ctxXZ = canvasXZ.getContext('2d');
-const canvasXY = document.getElementById('canvasXY'); // Vue de Dessus (Navigation : X / Y)
-const ctxXY = canvasXY.getContext('2d');
+const canvasProfile = document.getElementById('canvasProfile');
+const ctxProfile = canvasProfile.getContext('2d');
+const canvasTop = document.getElementById('canvasTop');
+const ctxTop = canvasTop.getContext('2d');
 
-// Dimensions synchronisées avec simulation.h
-// Z est l'altitude, Y est la profondeur
-const worldWidth = 200;  // Axe X
-const worldHeight = 100; // Axe Y (Profondeur)
-const worldDepth = 100;  // Axe Z (Altitude)
+// Dimensions physiques (Synchronisées avec simulation.h)
+const physSpanX = 200; // Axe X physique = Avancement (Contrôlé par le Pitch)
+const physSpanY = 100; // Axe Y physique = Gauche/Droite (Contrôlé par le Roll)
+const physSpanZ = 100; // Axe Z physique = Altitude (Contrôlé par le Thrust)
 const gridSpacing = 20;
 const trail = [];
 
-// Conversion proportionnelle
-// L'axe X sur le canvas va de gauche à droite
-function getPx(val, canvas) { return (val / worldWidth) * canvas.width; }
+/* --- FONCTIONS DE MAPPING : PHYSIQUE -> PIXELS --- */
 
-// Sur un canvas, l'axe Y va vers le bas. On l'inverse pour que 0 soit en bas.
-function getPy(val, maxVal, canvas) { return canvas.height - ((val / maxVal) * canvas.height); }
+// 1. Vue de Profil (Vue depuis l'arrière du drone)
+function getProfileX(physY) { 
+    // Roll Droite -> Y diminue. On veut l'afficher vers la droite de l'écran.
+    return ((physSpanY - physY) / physSpanY) * canvasProfile.width; 
+}
+function getProfileY(physZ) { 
+    // Altitude Z augmente -> Monte vers le haut de l'écran.
+    return canvasProfile.height - ((physZ / physSpanZ) * canvasProfile.height); 
+}
+
+// 2. Vue de Dessus
+function getTopX(physY) { 
+    // Mouvement latéral Gauche/Droite (Identique à la vue de profil)
+    return ((physSpanY - physY) / physSpanY) * canvasTop.width; 
+}
+function getTopY(physX) { 
+    // Pitch Avant -> X augmente. On veut l'afficher vers le haut de l'écran.
+    return canvasTop.height - ((physX / physSpanX) * canvasTop.height); 
+}
+
 
 function getLinkColor(distance) {
     if (distance < 30) return '#a6e3a1'; 
@@ -24,37 +39,46 @@ function getLinkColor(distance) {
     return '#f38ba8';                    
 }
 
-function drawGrid(ctx, canvas, maxW, maxH, labelHorizontal, labelVertical) {
-    ctx.strokeStyle = "#45475a";
-    ctx.lineWidth = 0.5;
-    ctx.font = "11px 'Segoe UI'"; 
-    ctx.fillStyle = "#bac2de";
-
-    // Lignes verticales
-    for (let x = 0; x <= maxW; x += gridSpacing) {
-        let px = (x / maxW) * canvas.width;
-        ctx.beginPath();
-        ctx.moveTo(px, 0);
-        ctx.lineTo(px, canvas.height);
-        ctx.stroke();
-        ctx.fillText(x + "m", px + 5, canvas.height - 10);
+function drawGridProfile() {
+    ctxProfile.strokeStyle = "#45475a"; ctxProfile.lineWidth = 0.5;
+    ctxProfile.font = "11px 'Segoe UI'"; ctxProfile.fillStyle = "#bac2de";
+    
+    // Lignes verticales (Axe Y physique, Gauche/Droite)
+    for (let y = 0; y <= physSpanY; y += gridSpacing) {
+        let px = getProfileX(y);
+        ctxProfile.beginPath(); ctxProfile.moveTo(px, 0); ctxProfile.lineTo(px, canvasProfile.height); ctxProfile.stroke();
+        ctxProfile.fillText(y + "m", px + 5, canvasProfile.height - 10);
     }
-
-    // Lignes horizontales
-    for (let y = 0; y <= maxH; y += gridSpacing) {
-        let py = canvas.height - ((y / maxH) * canvas.height);
-        ctx.beginPath();
-        ctx.moveTo(0, py);
-        ctx.lineTo(canvas.width, py);
-        ctx.stroke();
-        ctx.fillText(y + "m", 10, py - 5);
+    // Lignes horizontales (Altitude Z)
+    for (let z = 0; z <= physSpanZ; z += gridSpacing) {
+        let py = getProfileY(z);
+        ctxProfile.beginPath(); ctxProfile.moveTo(0, py); ctxProfile.lineTo(canvasProfile.width, py); ctxProfile.stroke();
+        ctxProfile.fillText(z + "m", 10, py - 5);
     }
+    ctxProfile.font = "bold 13px 'Segoe UI'"; ctxProfile.fillStyle = "#89b4fa";
+    ctxProfile.fillText("Z (Altitude)", 15, 25);
+    ctxProfile.fillText("Y (Gauche/Droite)", canvasProfile.width - 120, canvasProfile.height - 15);
+}
 
-    // Étiquettes d'axes
-    ctx.font = "bold 13px 'Segoe UI'";
-    ctx.fillStyle = "#89b4fa";
-    ctx.fillText(labelVertical, 15, 25);
-    ctx.fillText(labelHorizontal, canvas.width - 30, canvas.height - 15);
+function drawGridTop() {
+    ctxTop.strokeStyle = "#45475a"; ctxTop.lineWidth = 0.5;
+    ctxTop.font = "11px 'Segoe UI'"; ctxTop.fillStyle = "#bac2de";
+    
+    // Lignes verticales (Axe Y physique, Gauche/Droite)
+    for (let y = 0; y <= physSpanY; y += gridSpacing) {
+        let px = getTopX(y);
+        ctxTop.beginPath(); ctxTop.moveTo(px, 0); ctxTop.lineTo(px, canvasTop.height); ctxTop.stroke();
+        ctxTop.fillText(y + "m", px + 5, canvasTop.height - 10);
+    }
+    // Lignes horizontales (Axe X physique, Avant/Arrière)
+    for (let x = 0; x <= physSpanX; x += gridSpacing) {
+        let py = getTopY(x);
+        ctxTop.beginPath(); ctxTop.moveTo(0, py); ctxTop.lineTo(canvasTop.width, py); ctxTop.stroke();
+        ctxTop.fillText(x + "m", 10, py - 5);
+    }
+    ctxTop.font = "bold 13px 'Segoe UI'"; ctxTop.fillStyle = "#89b4fa";
+    ctxTop.fillText("X (Avant/Arrière)", 15, 25);
+    ctxTop.fillText("Y (Gauche/Droite)", canvasTop.width - 120, canvasTop.height - 15);
 }
 
 function drawViews(data) {
@@ -64,15 +88,13 @@ function drawViews(data) {
     trail.push({x: data.drone.x, y: data.drone.y, z: data.drone.z});
     if (trail.length > 80) trail.shift();
 
-    ctxXZ.clearRect(0, 0, canvasXZ.width, canvasXZ.height);
-    ctxXY.clearRect(0, 0, canvasXY.width, canvasXY.height);
+    ctxProfile.clearRect(0, 0, canvasProfile.width, canvasProfile.height);
+    ctxTop.clearRect(0, 0, canvasTop.width, canvasTop.height);
 
-    // Grilles :
-    // Profil : Axe horizontal = X, Axe vertical = Z (Altitude)
-    drawGrid(ctxXZ, canvasXZ, worldWidth, worldDepth, "X", "Z (Alt)");
-    // Dessus : Axe horizontal = X, Axe vertical = Y (Profondeur)
-    drawGrid(ctxXY, canvasXY, worldWidth, worldHeight, "X", "Y (Prof)");
+    drawGridProfile();
+    drawGridTop();
 
+    // Dessin des Liens WiFi
     data.users.forEach(user => {
         const dist3D = Math.sqrt(
             Math.pow(data.drone.x - user.x, 2) + 
@@ -81,77 +103,70 @@ function drawViews(data) {
         );
         const color = getLinkColor(dist3D);
 
-        // Lien Vue de Profil (X, Z)
-        ctxXZ.beginPath();
-        ctxXZ.moveTo(getPx(data.drone.x, canvasXZ), getPy(data.drone.z, worldDepth, canvasXZ));
-        ctxXZ.lineTo(getPx(user.x, canvasXZ), getPy(user.z, worldDepth, canvasXZ));
-        ctxXZ.strokeStyle = color; ctxXZ.lineWidth = 1.5; ctxXZ.setLineDash([5, 5]); ctxXZ.stroke();
+        // Lien Profil
+        ctxProfile.beginPath();
+        ctxProfile.moveTo(getProfileX(data.drone.y), getProfileY(data.drone.z));
+        ctxProfile.lineTo(getProfileX(user.y), getProfileY(user.z));
+        ctxProfile.strokeStyle = color; ctxProfile.lineWidth = 1.5; ctxProfile.setLineDash([5, 5]); ctxProfile.stroke();
         
-        // Lien Vue de Dessus (X, Y)
-        ctxXY.beginPath();
-        ctxXY.moveTo(getPx(data.drone.x, canvasXY), getPy(data.drone.y, worldHeight, canvasXY));
-        ctxXY.lineTo(getPx(user.x, canvasXY), getPy(user.y, worldHeight, canvasXY));
-        ctxXY.strokeStyle = color; ctxXY.lineWidth = 1.5; ctxXY.setLineDash([5, 5]); ctxXY.stroke();
+        // Lien Dessus
+        ctxTop.beginPath();
+        ctxTop.moveTo(getTopX(data.drone.y), getTopY(data.drone.x));
+        ctxTop.lineTo(getTopX(user.y), getTopY(user.x));
+        ctxTop.strokeStyle = color; ctxTop.lineWidth = 1.5; ctxTop.setLineDash([5, 5]); ctxTop.stroke();
         
-        ctxXZ.setLineDash([]); ctxXY.setLineDash([]);
+        ctxProfile.setLineDash([]); ctxTop.setLineDash([]);
     });
 
     // Dessin de la Traînée
-    ctxXZ.beginPath(); ctxXY.beginPath();
+    ctxProfile.beginPath(); ctxTop.beginPath();
     for (let i = 0; i < trail.length; i++) {
         const p = trail[i];
         const alpha = i / trail.length;
         
-        ctxXZ.lineTo(getPx(p.x, canvasXZ), getPy(p.z, worldDepth, canvasXZ));
-        ctxXZ.strokeStyle = `rgba(137, 220, 235, ${alpha})`;
+        ctxProfile.lineTo(getProfileX(p.y), getProfileY(p.z));
+        ctxProfile.strokeStyle = `rgba(137, 220, 235, ${alpha})`;
         
-        ctxXY.lineTo(getPx(p.x, canvasXY), getPy(p.y, worldHeight, canvasXY));
-        ctxXY.strokeStyle = `rgba(137, 220, 235, ${alpha})`;
+        ctxTop.lineTo(getTopX(p.y), getTopY(p.x));
+        ctxTop.strokeStyle = `rgba(137, 220, 235, ${alpha})`;
     }
-    ctxXZ.stroke(); ctxXY.stroke();
+    ctxProfile.stroke(); ctxTop.stroke();
 
     // Dessin des Utilisateurs
-    ctxXZ.fillStyle = '#fab387'; ctxXY.fillStyle = '#fab387';
+    ctxProfile.fillStyle = '#fab387'; ctxTop.fillStyle = '#fab387';
     data.users.forEach(u => {
-        ctxXZ.beginPath(); ctxXZ.arc(getPx(u.x, canvasXZ), getPy(u.z, worldDepth, canvasXZ), 7, 0, Math.PI*2); ctxXZ.fill();
-        ctxXY.beginPath(); ctxXY.arc(getPx(u.x, canvasXY), getPy(u.y, worldHeight, canvasXY), 7, 0, Math.PI*2); ctxXY.fill();
+        ctxProfile.beginPath(); ctxProfile.arc(getProfileX(u.y), getProfileY(u.z), 7, 0, Math.PI*2); ctxProfile.fill();
+        ctxTop.beginPath(); ctxTop.arc(getTopX(u.y), getTopY(u.x), 7, 0, Math.PI*2); ctxTop.fill();
     });
 
-    // --- Dessin du Drone ---
+    // --- DRONE : VUE DE PROFIL (Vue de l'arrière) ---
+    ctxProfile.save();
+    ctxProfile.translate(getProfileX(data.drone.y), getProfileY(data.drone.z));
+    // Rotation liée au ROLL (phi)
+    ctxProfile.rotate(data.drone.phi); 
+    ctxProfile.fillStyle = '#89dceb'; ctxProfile.fillRect(-20, -2, 40, 4); 
+    ctxProfile.fillStyle = '#f38ba8'; ctxProfile.beginPath(); ctxProfile.arc(0, 0, 4, 0, Math.PI*2); ctxProfile.fill();
+    ctxProfile.restore();
 
-    // Vue de Profil (Élévation : Axe X et Z)
-    // On regarde le drone de face/derrière. L'inclinaison gauche/droite est le ROLL (phi).
-    ctxXZ.save();
-    ctxXZ.translate(getPx(data.drone.x, canvasXZ), getPy(data.drone.z, worldDepth, canvasXZ));
-    // Attention: Sur un canvas, une rotation positive tourne dans le sens horaire.
-    // Si phi > 0 (Roll droite), le bras droit s'abaisse, le bras gauche se lève.
-    ctxXZ.rotate(data.drone.phi); 
+    // --- DRONE : VUE DE DESSUS ---
+    ctxTop.save();
+    ctxTop.translate(getTopX(data.drone.y), getTopY(data.drone.x));
+    // Rotation liée au YAW (psi). Inversé car le Canvas tourne à l'envers des repères mathématiques.
+    ctxTop.rotate(-data.drone.psi); 
     
-    ctxXZ.fillStyle = '#89dceb'; ctxXZ.fillRect(-20, -2, 40, 4); // Axe
-    ctxXZ.fillStyle = '#f38ba8'; ctxXZ.beginPath(); ctxXZ.arc(0, 0, 4, 0, Math.PI*2); ctxXZ.fill();
-    ctxXZ.restore();
-
-    // Vue de Dessus (Navigation : Axe X et Y)
-    ctxXY.save();
-    ctxXY.translate(getPx(data.drone.x, canvasXY), getPy(data.drone.y, worldHeight, canvasXY));
+    // Bras Gauche/Droite
+    ctxTop.fillStyle = '#a6e3a1'; 
+    ctxTop.fillRect(-15, -2, 30, 4); 
+    // Bras Avant/Arrière
+    ctxTop.fillStyle = '#89dceb'; 
+    ctxTop.fillRect(-2, -15, 4, 30); 
+    // Tête du drone (Rouge) pour voir vers où il pointe
+    ctxTop.fillStyle = '#f38ba8'; 
+    ctxTop.beginPath(); ctxTop.arc(0, -15, 4, 0, Math.PI*2); ctxTop.fill();
     
-    // Le Yaw (psi) fait tourner le drone sur lui-même en vue de dessus
-    ctxXY.rotate(data.drone.psi); 
-    
-    // Dessin de la croix (Quadricoptère)
-    ctxXY.fillStyle = '#a6e3a1'; 
-    ctxXY.fillRect(-15, -2, 30, 4); // Bras gauche/droite
-    ctxXY.fillRect(-2, -15, 4, 30); // Bras avant/arrière
-
-    // Corps du drone
-    ctxXY.fillStyle = '#f38ba8'; 
-    ctxXY.beginPath(); ctxXY.arc(0, 0, 5, 0, Math.PI*2); ctxXY.fill();
-    
-    // Indicateur de direction (Nez du drone sur l'axe Y)
-    ctxXY.fillStyle = '#f9e2af';
-    ctxXY.beginPath(); ctxXY.arc(0, -15, 3, 0, Math.PI*2); ctxXY.fill(); 
-
-    ctxXY.restore();
+    ctxTop.fillStyle = '#cdd6f4'; // Centre
+    ctxTop.beginPath(); ctxTop.arc(0, 0, 5, 0, Math.PI*2); ctxTop.fill();
+    ctxTop.restore();
 }
 
 setInterval(() => {
