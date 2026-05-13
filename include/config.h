@@ -4,29 +4,31 @@
 #include <stdbool.h>
 #include <stdio.h>
 
-typedef struct s_rl_config RLConfig;
+typedef struct s_rl_config Config;
 
 /*
 Structure contenant tous les hyperparamètres et paramètres
 */
 struct s_rl_config {
-    float gamma;
-    float epsilon;
-    float alpha;
+    double gamma;
+    double alpha;
+    double epsilon;
+    double epsilon_min;
+    double epsilon_decay;
     int steps;
     int epochs;
 };
 
-RLConfig RLDefaultConfig(void);
+Config defaultConfig(void);
 
-void RLConfigSetGamma(RLConfig *cfg, float v);
+void configSetGamma(Config *cfg, float v);
 
-void RLConfigSetEpsilon(RLConfig *cfg, float v);
+void configSetEpsilon(Config *cfg, float v);
 
-void RLConfigSetAlpha(RLConfig *cfg, float v);
+void configSetAlpha(Config *cfg, float v);
 
-void RLConfigSetSteps(RLConfig *cfg, int v);
+void configSetSteps(Config *cfg, int v);
 
-void RLConfigSetEpochs(RLConfig *cfg, int v);
+void configSetEpochs(Config *cfg, int v);
 
 #endif

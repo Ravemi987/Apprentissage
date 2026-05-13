@@ -4,51 +4,38 @@
 #include <stdbool.h>
 #include <stdio.h>
 
-#include "env.h"
 #include "config.h"
+#include "network.h"
+#include "state.h"
 
-typedef struct s_rl_model RLModel;
+typedef struct {
+    State state;
+    EngineAction action;
+    double reward;
+    State next_state;
+    int next_state_terminal;
+} Transition;
 
-/* Creation */
 
-RLModel *RLModelCreate(RLEnv *userData);
+typedef struct {
+    Transition *buffer; // Tableau alloué dynamiquement mémoriser les transitions
+    int capacity;       // Capacité max
+    int size;           // Taille actuelle
+    int head;           // Index d'insertion (buffer dynamique)
+} ReplayBuffer;
 
-void RLModelDelete(RLModel **m);
 
-/* Setters */
+typedef struct s_rl_model {
+    NeuralNetwork *q_network;       // Réseau principal (entraine Q(s, a))
+    NeuralNetwork *target_network;  // Réseau cible (calcule max Q(s', a'))
 
-void RLModelSetConfig(RLModel *m, RLConfig cfg);
+    ReplayBuffer *memory;           // Mémoire pour l'Experience Replay
+    Config config;                  // Config avec hyperparamètres
 
-/* Getters */
+    int target_update_freq;         // Fréquence de synchronisation des deux réseaux (ex: 1000 steps)
+    int train_step_count;           // Compteur pour savoir quand synchroniser
+} DQNModel;
 
-float *RLModelGetStatesValues(RLModel *m);
 
-int *RLModelGetPolicy(RLModel *m);
-
-float *RLModelGetQTable(RLModel *m);
-
-RLConfig *RLModelGetConfig(RLModel *m);
-
-float RLModelGetReward(RLModel *m, RLState s, RLAction a);
-
-RLState RLModelGetNextState(RLModel *m, RLState s, RLAction a);
-
-RLAction RLModelGetBestAction(RLModel *m , RLState s);
-
-/* Print */
-
-void RLModelPrintStatesValues(RLModel *m);
-
-void RLModelPrintPolicy(RLModel *m);
-
-void RLModelPrintQTable(RLModel *m);
-
-/* Algorithms */
-
-void valueIteration(RLModel *m);
-
-void policyIteration(RLModel *m);
-
-void QLearning(RLModel *m);
 
 #endif

@@ -2,32 +2,34 @@
 #include <stdlib.h>
 
 
-RLConfig RLDefaultConfig(void) {
-    return (RLConfig){
+Config defaultConfig(void) {
+    return (Config){
         .gamma = 0.2,
         .epsilon = 1e-4,
+        .epsilon_min = 1.e-4,
+        .epsilon_decay = 0.0,
         .alpha = 1,
         .steps = 10,
         .epochs = 100
     };
 }
 
-void RLConfigSetGamma(RLConfig *cfg, float v) {
+void configSetGamma(Config *cfg, float v) {
     cfg->gamma = v;
 }
 
-void RLConfigSetEpsilon(RLConfig *cfg, float v) {
+void configSetEpsilon(Config *cfg, float v) {
     cfg->epsilon = v;
 }
 
-void RLConfigSetAlpha(RLConfig *cfg, float v) {
+void configSetAlpha(Config *cfg, float v) {
     cfg->alpha = v;
 }
 
-void RLConfigSetSteps(RLConfig *cfg, int v) {
+void configSetSteps(Config *cfg, int v) {
     cfg->steps = v;
 }
 
-void RLConfigSetEpochs(RLConfig *cfg, int v) {
+void configSetEpochs(Config *cfg, int v) {
     cfg->epochs = v;
 }

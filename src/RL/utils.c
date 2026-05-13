@@ -81,34 +81,6 @@ void printFloatMatrix(float *a, int nr, int nc) {
     }
 }
 
-int readMatricesFromFile(char *filename, float **T, float **R) {
-    FILE *f = fopen(filename, "r");
-    if (!f) return -1;
-
-    int nS, nA;
-    if (fscanf(f, "%d %d", &nS, &nA) != 2) {fclose(f); return -1;}
-
-    int tSize = nS * nA * nS;
-    int rSize = nS * nA;
-
-    *T = calloc(tSize, sizeof(float));
-    *R = calloc(rSize, sizeof(float));
-
-    if (*T == NULL || *R == NULL) {fclose(f); return -1;}
-
-    for (int i = 0; i < tSize; ++i) {
-        if (fscanf(f, "%f", &((*T)[i])) == 0) return -1;
-    }
-
-    for (int i = 0; i < rSize; ++i) {
-        if (fscanf(f, "%f", &((*R)[i])) == 0) return -1;
-    } 
-
-    fclose(f);
-
-    return 0;
-}
-
 double linear(double *X, double *W, double b, int size) {
     double r = 0;
 

@@ -7,38 +7,21 @@
 #include <stdint.h>
 #include <math.h>
 
-typedef struct s_rl_env RLEnv;
 
-/*
-Définition d'un modèle 
-*/
-struct s_rl_model {
-    // Environnement contenant les données, les fonctions, ...
-    RLEnv *userData;
+static void initNetwork(DQNModel *m) {
+    // int layerSizes[] = 
+    // m->q_network = networkCreate([])
+}
 
-    // Tableau de valeur des états
-    float *stateValues;
 
-    // Q-table
-    float *QTable;
+DQNModel* DQNModelCreate() {
+    DQNModel *m = malloc(sizeof(struct s_rl_model));
 
-    // Politique
-    int *policy;
-
-    // Config associée au modèle
-    RLConfig config;
-};
-
-RLModel* RLModelCreate(RLEnv *userData) {
-    RLModel *m = malloc(sizeof(struct s_rl_model));
-    m->userData = userData;
-
-    m->stateValues = calloc(RLEnvGetNS(userData), sizeof(float));
-    m->policy = calloc(RLEnvGetNS(userData), sizeof(int));
-    m->QTable = calloc(RLEnvGetNS(userData)* RLEnvGetNA(userData), sizeof(float));
-
-    // On a une config par défaut
-    m->config = RLDefaultConfig();
+    initNetworks(m);
+    initReplayBuffer(m);
+    m->config = defaultConfig();
+    m->train_step_count = 0;
+    m->target_update_freq = 1000;
 
     return m;
 };
@@ -46,12 +29,9 @@ RLModel* RLModelCreate(RLEnv *userData) {
 /*
 Libère le modèle.
 */
-void RLModelDelete(RLModel **m) {
+void DQNModelDelete(DQNModel **m) {
     if ((*m) == NULL) return;
 
-    free((*m)->stateValues);
-    free((*m) ->policy);
-    free((*m)->QTable);
     free(*(m));
 
     (*m) = NULL;
@@ -59,92 +39,38 @@ void RLModelDelete(RLModel **m) {
 
 /* Setters */
 
-void RLModelSetConfig(RLModel *m, RLConfig cfg) {
+void DQNModelSetConfig(DQNModel *m, Config cfg) {
     m->config = cfg;
 }
 
 /* Getters */
 
-float *RLModelGetStatesValues(RLModel *m) {
-    return m->stateValues;
-}
 
-int *RLModelGetPolicy(RLModel *m) {
-    return m->policy;
-}
-
-float *RLModelGetQTable(RLModel *m) {
-    return m->QTable;
-}
-
-RLConfig* RLModelGetConfig(RLModel *m) {
+Config* DQNModelGetConfig(DQNModel *m) {
     return &(m->config);
 }
 
-float RLModelGetReward(RLModel *m, RLState s, RLAction a) {
-    return RLEnvGetR(m->userData, s.id, a.id);
-}
-
-RLState RLModelGetNextState(RLModel *m, RLState s, RLAction a) {
-    return RLEnvGetState(m->userData, RLEnvGetTransitionState(m->userData, s.id, a.id));
-}
-
-RLAction RLModelGetBestAction(RLModel *m , RLState s) {
-    return RLEnvGetAction(m->userData, m->policy[s.id]);
-}
-
-
-/* Printing */
-
-void RLModelPrintStatesValues(RLModel *m) {
-    printFloatArray(m->stateValues, RLEnvGetNS(m->userData));
-    printf("\n");
-}
-
-void RLModelPrintPolicy(RLModel *m) {
-    printIntArray(m->policy, RLEnvGetNS(m->userData));
-    printf("\n");
-}
-
-void RLModelPrintQTable(RLModel *m) {
-    printFloatMatrix(m->QTable, RLEnvGetNS(m->userData), RLEnvGetNA(m->userData));
-    printf("\n");
-}
-
-/* Fonctions statiques */
-
-static int getBestAction(RLModel *m, int state) {
-    return arrayMaxIndex(&(m->QTable[state * RLEnvGetNA(m->userData)]), RLEnvGetNA(m->userData));
-}
-
-static float getBestNextQValue(RLModel *m, int nextState) {
-    return arrayMax(&(m->QTable[nextState * RLEnvGetNA(m->userData)]), RLEnvGetNA(m->userData));
-}
-
-static int getQIndex(RLModel *m, int state, int action) {
-    return state * RLEnvGetNA(m->userData) + action;
-}
 
 /* Algorithmes */
 
 /* ------------------------------- */
 
-void valueIteration(RLModel *m) {
+void valueIteration(DQNModel *m) {
     float epsilon = m->config.epsilon;
     float gamma = m->config.gamma;
-    RLEnv *env = m->userData;
+    Env *env = m->userData;
     float delta = DBL_MAX;
 
     while (delta > epsilon) {
         delta = 0;
 
-        for (int s = 0; s < RLEnvGetNS(env); ++s) {
+        for (int s = 0; s < EnvGetNS(env); ++s) {
             float oldValue = m->stateValues[s];
             float maxQ = -DBL_MAX;
 
-            for (int a = 0; a < RLEnvGetNA(env); ++a) {
-                float q = RLEnvGetR(env, s, a) + gamma * sum(
-                    RLEnvGetTransitionArray(env, s, a), m->stateValues,RLEnvGetNS(env)
+            for (int a = 0; a < EnvGetNA(env); ++a) {
+                float q = EnvGetR(env, s, a) + gamma * sum(
+                    EnvGetTransitionArray(env, s, a), m->stateValues,EnvGetNS(env)
                 );
 
                 if (q > maxQ) {
@@ -161,22 +87,22 @@ void valueIteration(RLModel *m) {
 
 /* ------------------------------- */
 
-void policyEvaluation(RLModel *m, int *policy) {
+void policyEvaluation(DQNModel *m, int *policy) {
     float epsilon = m->config.epsilon;
     float gamma = m->config.gamma;
-    RLEnv *env = m->userData;
+    Env *env = m->userData;
     float delta = DBL_MAX;
 
     while (delta > epsilon) {
         delta = 0;
 
-        for (int s = 0; s < RLEnvGetNS(env); ++s) {
+        for (int s = 0; s < EnvGetNS(env); ++s) {
             float oldValue = m->stateValues[s];
 
             int a = policy[s];
 
-            m->stateValues[s] = RLEnvGetR(env, s, a) + gamma * sum(
-                RLEnvGetTransitionArray(env, s, a), m->stateValues, RLEnvGetNS(env)
+            m->stateValues[s] = EnvGetR(env, s, a) + gamma * sum(
+                EnvGetTransitionArray(env, s, a), m->stateValues, EnvGetNS(env)
             );
 
             delta = fmax(delta, fabs(m->stateValues[s] - oldValue));
@@ -184,21 +110,21 @@ void policyEvaluation(RLModel *m, int *policy) {
     }
 }
 
-bool policyImprovement(RLModel *m, int *policy) {
+bool policyImprovement(DQNModel *m, int *policy) {
     float gamma = m->config.gamma;
-    RLEnv *env = m->userData;
+    Env *env = m->userData;
 
     bool isPolicyStable = true;
 
-    for (int s = 0; s < RLEnvGetNS(env); ++s) {
+    for (int s = 0; s < EnvGetNS(env); ++s) {
         int oldAction = policy[s];
 
         float maxQ = -DBL_MAX;
         int bestAction = oldAction;
 
-        for (int a = 0; a < RLEnvGetNA(env); ++a) {
-            float q = RLEnvGetR(env, s, a) + gamma * sum(
-                RLEnvGetTransitionArray(env, s, a), m->stateValues, RLEnvGetNS(env)
+        for (int a = 0; a < EnvGetNA(env); ++a) {
+            float q = EnvGetR(env, s, a) + gamma * sum(
+                EnvGetTransitionArray(env, s, a), m->stateValues, EnvGetNS(env)
             );
 
             if (q > maxQ + 1e-7) {
@@ -215,8 +141,8 @@ bool policyImprovement(RLModel *m, int *policy) {
     return isPolicyStable;
 }
 
-void policyIteration(RLModel *m) {
-    arrayRandom(m->policy, RLEnvGetNS(m->userData), RLEnvGetNA(m->userData));
+void policyIteration(DQNModel *m) {
+    arrayRandom(m->policy, EnvGetNS(m->userData), EnvGetNA(m->userData));
 
     bool isPolicyStable = false;
 
@@ -228,10 +154,10 @@ void policyIteration(RLModel *m) {
 
 /* ------------------------------- */
 
-void QLearning(RLModel *m) {
+void QLearning(DQNModel *m) {
     float alpha = m->config.alpha;
     float gamma = m->config.gamma;
-    RLEnv *env = m->userData;
+    Env *env = m->userData;
 
     for (int epoch = 0; epoch < m->config.epochs; ++epoch) {
         int state = 0;
@@ -241,13 +167,13 @@ void QLearning(RLModel *m) {
             int action;
 
             if (r < m->config.epsilon) {
-                action =  rand() % RLEnvGetNA(env);
+                action =  rand() % EnvGetNA(env);
             } else {
                 action = getBestAction(m, state);
             }
 
-            int nextState = RLEnvGetTransitionState(env, state, action);
-            float reward = RLEnvGetR(env, state, action);
+            int nextState = EnvGetTransitionState(env, state, action);
+            float reward = EnvGetR(env, state, action);
 
             float nextValue = getBestNextQValue(m, nextState);
 
@@ -259,7 +185,7 @@ void QLearning(RLModel *m) {
         }
     }
 
-    for (int s = 0; s < RLEnvGetNS(env); ++s) {
+    for (int s = 0; s < EnvGetNS(env); ++s) {
         m->policy[s] = getBestAction(m, s);
     }
 }

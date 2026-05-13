@@ -3,11 +3,15 @@
 
 #include <stdbool.h>
 #include <stdio.h>
+#include "simulation.h"
+
+#define MAX_FEATURES 30
 
 typedef struct s_rl_state {
-    int id;
-    char *label;
-    void *context;
-} RLState;
+    float features[MAX_FEATURES];   // Les données prises en compte : position, vitesse linéaire, vitesse angulaire, ...
+    int nb_features;
+} State;
+
+double normalizeState(State* s, World *world);
 
 #endif

@@ -4,29 +4,19 @@
 #include <stdbool.h>
 #include <stdio.h>
 
-#include "state.h"
-#include "action.h"
+#include "simulation.h"
+#include "model.h"
 
-typedef struct s_rl_env RLEnv;
+typedef struct s_rl_env {
+    World *physical_world;  // Monde physique
+    State current_state;    // Etat courant
+    int is_terminal;        // Pour savoir si l'état est terminal : l'agent atteint son objectif ou a échoué
+    double current_reward;
+    int step_count;         // Calcul du nombre d'étapes de la simulations physiques
+    int max_steps;          // Nombre d'étapes maximum de simulation de la physique
+} Env;
 
-RLEnv *RLEnvCreate(int nStates, int nActions,
-                   RLState *states, RLAction *actions,
-                   int (*Generate)(RLState *, RLAction*, float**, float**));
 
-void RLEnvDelete(RLEnv **env);
-
-RLAction RLEnvGetAction(RLEnv *e, int a);
-
-RLState RLEnvGetState(RLEnv *e, int s);
-
-int RLEnvGetNS(RLEnv *e);
-
-int RLEnvGetNA(RLEnv *e);
-
-float *RLEnvGetTransitionArray(RLEnv *e, int s, int a);
-
-int RLEnvGetTransitionState(RLEnv *e, int s, int a);
-
-float RLEnvGetR(RLEnv *e, int s, int a);
+void envStep(Env *env, State *next_state, double *reward, int *is_terminal, int action_idx);
 
 #endif

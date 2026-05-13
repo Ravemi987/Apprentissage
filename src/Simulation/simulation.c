@@ -111,7 +111,7 @@ void applyControllerAndMixer(Drone *d, double dt) {
 }
 
 
-/* La physique ne connaît pas les commandes directement, c'est pour cela que nous recalculons les U réels*/
+/* La physique ne connaît pas les commandes directement, c'est pour cela que nous recalculons les U réels */
 void computeCommandVector(World *w, double *U) {
     Drone d = *(w->drone);
 
