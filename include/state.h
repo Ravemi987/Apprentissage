@@ -5,13 +5,12 @@
 #include <stdio.h>
 #include "simulation.h"
 
-#define MAX_FEATURES 30
 
 typedef struct s_rl_state {
-    float features[MAX_FEATURES];   // Les données prises en compte : position, vitesse linéaire, vitesse angulaire, ...
-    int nb_features;
+    float features[NB_STATES];   // Les données prises en compte : position, vitesse linéaire, vitesse angulaire, ...
 } State;
 
-double normalizeState(State* s, World *world);
+
+void getStateVector(World *w, State *s, double target_x, double target_y, double target_z);
 
 #endif

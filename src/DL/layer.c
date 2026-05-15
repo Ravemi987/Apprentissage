@@ -31,7 +31,8 @@ static void scanActivationFunction(Layer *l, char *activationFun) {
     if (strcmp(activationFun, "sigmoid") == 0) l->activationFunction = getSigmoidActivation();
     else if (strcmp(activationFun, "relu") == 0) l->activationFunction = getReLUActivation();
     else if (strcmp(activationFun, "silu") == 0) l->activationFunction = getSiLUActivation();
-    else l->activationFunction = getSoftMaxActivation();
+    else if (strcmp(activationFun, "softmax") == 0) l->activationFunction = getSoftMaxActivation();
+    else l->activationFunction = getLinearActivation();
 }
 
 

@@ -8,34 +8,54 @@
 #include <math.h>
 
 
-static void initNetwork(DQNModel *m) {
-    // int layerSizes[] = 
-    // m->q_network = networkCreate([])
+/* Init */
+
+static NeuralNetwork *initNetwork(int batchSize) {
+    int layerSizes[] = {NB_STATES, 128, 64, NB_ACTION};
+    int numLayers = sizeof(layerSizes) / sizeof(layerSizes[0]);
+    return networkCreate(layerSizes, numLayers, "mean_squared_error", "relu", "linear", batchSize);
 }
 
 
-DQNModel* DQNModelCreate() {
+static ReplayBuffer *initReplayBuffer() {
+    ReplayBuffer *b = malloc(sizeof(ReplayBuffer));
+    b->capacity = MEMORY_SIZE;
+    b->size = 0;
+    b->head = 0;
+    b->buffer = malloc(MEMORY_SIZE * sizeof(Transition));
+    memset(b->buffer, 0, MEMORY_SIZE);
+    return b;
+}
+
+
+DQNModel* DQNModelCreate(World *w, int update_freq, int batchSize) {
     DQNModel *m = malloc(sizeof(struct s_rl_model));
 
-    initNetworks(m);
-    initReplayBuffer(m);
+    m->batchSize = batchSize;
+    m->q_network = initNetwork(batchSize);
+    m->target_network = initNetwork(batchSize);
+    m->memory = initReplayBuffer();
+    m->env = initEnv(w);
     m->config = defaultConfig();
     m->train_step_count = 0;
-    m->target_update_freq = 1000;
-
+    m->networks_update_freq = update_freq;
     return m;
 };
 
-/*
-Libère le modèle.
-*/
+
 void DQNModelDelete(DQNModel **m) {
     if ((*m) == NULL) return;
 
-    free(*(m));
+    networkDestroy(&(*m)->q_network);
+    networkDestroy(&(*m)->target_network);
+    free((*m)->memory->buffer);
+    free((*m)->memory);
+    free((*m)->env);
+    free(*m);
 
     (*m) = NULL;
 }
+
 
 /* Setters */
 
@@ -43,149 +63,52 @@ void DQNModelSetConfig(DQNModel *m, Config cfg) {
     m->config = cfg;
 }
 
-/* Getters */
 
+/* Getters */
 
 Config* DQNModelGetConfig(DQNModel *m) {
     return &(m->config);
 }
 
 
-/* Algorithmes */
+/* Algorithm */
 
-/* ------------------------------- */
+int predict(DQNModel *m, State state) {
+    float r = (float)rand() / (float)RAND_MAX;
+    int action;
 
-void valueIteration(DQNModel *m) {
-    float epsilon = m->config.epsilon;
-    float gamma = m->config.gamma;
-    Env *env = m->userData;
-    float delta = DBL_MAX;
-
-    while (delta > epsilon) {
-        delta = 0;
-
-        for (int s = 0; s < EnvGetNS(env); ++s) {
-            float oldValue = m->stateValues[s];
-            float maxQ = -DBL_MAX;
-
-            for (int a = 0; a < EnvGetNA(env); ++a) {
-                float q = EnvGetR(env, s, a) + gamma * sum(
-                    EnvGetTransitionArray(env, s, a), m->stateValues,EnvGetNS(env)
-                );
-
-                if (q > maxQ) {
-                    maxQ = q; 
-                    m->policy[s] = a;
-                }
-            }
-
-            m->stateValues[s] = maxQ;
-            delta = fmax(delta, fabs(m->stateValues[s] - oldValue));
-        }
-    }
-}
-
-/* ------------------------------- */
-
-void policyEvaluation(DQNModel *m, int *policy) {
-    float epsilon = m->config.epsilon;
-    float gamma = m->config.gamma;
-    Env *env = m->userData;
-    float delta = DBL_MAX;
-
-    while (delta > epsilon) {
-        delta = 0;
-
-        for (int s = 0; s < EnvGetNS(env); ++s) {
-            float oldValue = m->stateValues[s];
-
-            int a = policy[s];
-
-            m->stateValues[s] = EnvGetR(env, s, a) + gamma * sum(
-                EnvGetTransitionArray(env, s, a), m->stateValues, EnvGetNS(env)
-            );
-
-            delta = fmax(delta, fabs(m->stateValues[s] - oldValue));
-        }
-    }
-}
-
-bool policyImprovement(DQNModel *m, int *policy) {
-    float gamma = m->config.gamma;
-    Env *env = m->userData;
-
-    bool isPolicyStable = true;
-
-    for (int s = 0; s < EnvGetNS(env); ++s) {
-        int oldAction = policy[s];
-
-        float maxQ = -DBL_MAX;
-        int bestAction = oldAction;
-
-        for (int a = 0; a < EnvGetNA(env); ++a) {
-            float q = EnvGetR(env, s, a) + gamma * sum(
-                EnvGetTransitionArray(env, s, a), m->stateValues, EnvGetNS(env)
-            );
-
-            if (q > maxQ + 1e-7) {
-                maxQ = q; 
-                bestAction = a;
-            }
-        }
-
-        policy[s] = bestAction;
-
-        if (oldAction != bestAction) isPolicyStable = false;
+    if (r < m->config.epsilon) {
+        action =  rand() % NB_ACTION;
+        epsilonDecay(&m->config);
+    } else {
+        double *q_values = nnForwardPropagation(m->q_network, state.features, m->batchSize);
+        action = nnPredictClass(m, q_values);
     }
 
-    return isPolicyStable;
+    return action;
 }
 
-void policyIteration(DQNModel *m) {
-    arrayRandom(m->policy, EnvGetNS(m->userData), EnvGetNA(m->userData));
 
-    bool isPolicyStable = false;
-
-    while (!isPolicyStable) {
-        policyEvaluation(m, m->policy);
-        isPolicyStable = policyImprovement(m, m->policy);
-    }
-}
-
-/* ------------------------------- */
-
-void QLearning(DQNModel *m) {
+void DeepQLearning(DQNModel *m) {
     float alpha = m->config.alpha;
     float gamma = m->config.gamma;
-    Env *env = m->userData;
+    State next_state;
+    double reward;
+    int is_terminal;
+    Env *env = m->env;
 
     for (int epoch = 0; epoch < m->config.epochs; ++epoch) {
-        int state = 0;
+        resetEnv(env);
 
         for (int step = 0; step < m->config.steps; ++step) {
-            float r = (float)rand() / (float)RAND_MAX;
-            int action;
+            int action = predict(m, env->current_state);
+            envStep(env, &next_state, &reward, &is_terminal, action);
 
-            if (r < m->config.epsilon) {
-                action =  rand() % EnvGetNA(env);
-            } else {
-                action = getBestAction(m, state);
-            }
+            Transition copy = {env->current_state, action, reward, next_state, is_terminal};
+            saveTransition(m->memory, copy);
 
-            int nextState = EnvGetTransitionState(env, state, action);
-            float reward = EnvGetR(env, state, action);
+            env->current_state = next_state;
 
-            float nextValue = getBestNextQValue(m, nextState);
-
-            m->QTable[getQIndex(m, state, action)] += alpha * (
-                reward + (gamma * nextValue) - m->QTable[getQIndex(m, state, action)]
-            );
-
-            state = nextState;
         }
-    }
-
-    for (int s = 0; s < EnvGetNS(env); ++s) {
-        m->policy[s] = getBestAction(m, s);
     }
 }

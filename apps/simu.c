@@ -34,7 +34,6 @@ int main() {
     char ch;
     int current_action = -1; 
     int running = 1;
-    int timeout = 0;
 
     while (running) {
         if (read(STDIN_FILENO, &ch, 1) > 0) {
@@ -46,24 +45,16 @@ int main() {
             else if (ch == 'e') current_action = ENGINE_PITCH_RIGHT;
             else if (ch == 'r') current_action = ENGINE_YAW_LEFT;
             else if (ch == 'f') current_action = ENGINE_YAW_RIGHT;
-            else if (ch == 'x') running = 0;
-            
-            timeout = 5; 
+            else if (ch == 'w') current_action = ENGINE_IDLE;
+            else if (ch == 'x') running = 0; 
         }
 
-        if (timeout > 0) {
-            handleCommand(&d, current_action);
-            timeout--;
-        } else {
-            d.target_roll = 0.0;
-            d.target_pitch = 0.0;
-            d.target_thrust = M * G;
-        }
-        
+        handleCommand(&d, current_action);
+ 
         physicsStep(&w, DT);
 
-        printf("\rPos: (%.1f, %.1f, %.1f) | R:%.1f° P:%.1f° Y:%.1f° | Timeout:%d  ", 
-               d.x, d.y, d.z, d.phi*57.3, d.theta*57.3, d.psi*57.3, timeout);
+        printf("\rPos: (%.1f, %.1f, %.1f) | R:%.1f° P:%.1f° Y:%.1f°", 
+               d.x, d.y, d.z, d.phi*57.3, d.theta*57.3, d.psi*57.3);
         fflush(stdout);
 
         exportStateToJSON(&w, "web/state.json");

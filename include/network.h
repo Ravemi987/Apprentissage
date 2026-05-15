@@ -13,6 +13,7 @@
 #include "loss.h"
 #include "layer.h"
 
+
 typedef struct s_dl_neural_network NeuralNetwork;
 
 

@@ -25,12 +25,14 @@
 #define MATH_PI 3.14159265358979323846 // PI
 #define ANGLE_LIMIT 0.5 // Limite pour éviter les singularités de gimbal lock
 #define MAX_ROT 5.0 // Vitesse de rotation maximale en rad/s
+#define MAX_VELOCITY 30.0
 #define DRAG_COEFF (0.5 * RHO * 0.1 * D * MATH_PI * pow(RADIUS, 2)) // Coefficient de traînée aérodynamique
 
 #define SIGNAL_BASE_POWER -30.0  // -30.0 dBm : Puissance à 1m
 #define PATH_LOSS_EXPONENT 2.0   // Milieu Hertzien
 
-#define NB_ACTION 8
+#define NB_ACTION 9
+#define NB_STATES 12
 
 
 typedef struct {
@@ -65,14 +67,15 @@ typedef struct {
 
 
 typedef enum {
-    ENGINE_UP = 0,
-    ENGINE_DOWN = 1,
-    ENGINE_PITCH_LEFT = 2,
-    ENGINE_PITCH_RIGHT = 3,
-    ENGINE_ROLL_LEFT = 4,
-    ENGINE_ROLL_RIGHT = 5,
-    ENGINE_YAW_LEFT = 6,
-    ENGINE_YAW_RIGHT = 7
+    ENGINE_IDLE = 0,
+    ENGINE_UP,
+    ENGINE_DOWN,
+    ENGINE_PITCH_LEFT,
+    ENGINE_PITCH_RIGHT,
+    ENGINE_ROLL_LEFT,
+    ENGINE_ROLL_RIGHT,
+    ENGINE_YAW_LEFT,
+    ENGINE_YAW_RIGHT
 } EngineAction;
 
 

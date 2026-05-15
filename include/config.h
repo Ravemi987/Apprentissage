@@ -31,4 +31,6 @@ void configSetSteps(Config *cfg, int v);
 
 void configSetEpochs(Config *cfg, int v);
 
+void epsilonDecay(Config *cfg);
+
 #endif

@@ -55,6 +55,12 @@ void applyLimits(World *w) {
 
 /* Traduit les ordres en vitesse moteur */
 void handleCommand(Drone *d, int action) {
+    if (action == ENGINE_IDLE) {
+        d->target_roll = 0.0;
+        d->target_pitch = 0.0;
+        d->target_thrust = M * G;
+    }
+
     if (action == ENGINE_UP)            d->target_thrust = (M * G) + 4.0; // Monter
     if (action == ENGINE_DOWN)          d->target_thrust = (M * G) - 4.0; // Descendre
     if (action == ENGINE_PITCH_LEFT)    d->target_pitch = ANGLE_LIMIT;   // Pitch avant
