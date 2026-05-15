@@ -131,6 +131,7 @@ void resetEnv(Env *env) {
     *(w->drone) = createDrone(100.0, 50.0, 20.0);
     env->current_reward = 0.0;
     env->is_terminal = 0;
+
     getStateVector(env, env->current_state);
 }
 
@@ -144,6 +145,8 @@ Env *initEnv(World *w, double *target) {
     env->target_x = target[0];
     env->target_y = target[1];
     env->target_z = target[2];
+    env->max_steps = 1000;
+
     getStateVector(env, env->current_state);
 
     return env;
