@@ -198,7 +198,7 @@ static double *oneHotEncode(double *expectedClasses, int numSamples, int numClas
 }
 
 
-void nnTrain(NeuralNetwork *nn, double *trainInputs, double *expectedOutput, int numSamples, int numClasses,
+void networkTrain(NeuralNetwork *nn, double *trainInputs, double *expectedOutput, int numSamples, int numClasses,
             double learningRate, int iterationsNumber, int batchSize, double decay) {
     double *encodedOutput = oneHotEncode(expectedOutput, numSamples, numClasses);
     double initialLr = learningRate;
@@ -275,4 +275,46 @@ void networkDestroy(NeuralNetwork **nn) {
     free((*nn)->lossFunction);
     free(*nn);
     *nn = NULL;
+}
+
+
+void networkCopyWeights(NeuralNetwork *dest, NeuralNetwork *src) {
+    if (dest->nbLayers != src->nbLayers) {
+        printf("Erreur: Les réseaux n'ont pas le même nombre de couches.\n");
+        return;
+    }
+    
+    for (int i = 0; i < dest->nbLayers; i++) {
+        layerCopyWeights(dest->layers[i], src->layers[i]);
+    }
+}
+
+void networkSave(NeuralNetwork *nn, const char *filepath) {
+    FILE *file = fopen(filepath, "wb");
+    if (!file) {
+        printf("Erreur: Impossible d'ouvrir %s pour la sauvegarde.\n", filepath);
+        return;
+    }
+
+    for (int i = 0; i < nn->nbLayers; i++) {
+        layerSave(nn->layers[i], file);
+    }
+
+    fclose(file);
+    printf("Modele sauvegarde avec succès dans : %s\n", filepath);
+}
+
+void networkLoad(NeuralNetwork *nn, const char *filepath) {
+    FILE *file = fopen(filepath, "rb");
+    if (!file) {
+        printf("Erreur: Impossible d'ouvrir %s pour le chargement.\n", filepath);
+        return;
+    }
+
+    for (int i = 0; i < nn->nbLayers; i++) {
+        layerLoad(nn->layers[i], file);
+    }
+
+    fclose(file);
+    printf("Modele charge avec succès depuis : %s\n", filepath);
 }

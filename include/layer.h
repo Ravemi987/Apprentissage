@@ -39,4 +39,10 @@ void layerUpdateWeights(Layer *l, double learningRate, int datasetSize);
 
 void layerDestroy(Layer **l);
 
+void layerCopyWeights(Layer *dest, Layer *src);
+
+void layerSave(Layer *l, FILE *file);
+
+void layerLoad(Layer *l, FILE *file);
+
 #endif

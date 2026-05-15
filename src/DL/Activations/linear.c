@@ -8,6 +8,7 @@ static double linearApply(double z) {
 
 
 static double linearDerivative(double z) {
+    if (z) {}
     return 1.0;
 }
 

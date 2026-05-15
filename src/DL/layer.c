@@ -252,3 +252,29 @@ void layerDestroy(Layer **l) {
     free((*l)->biasesGradients);
     *l = NULL;
 }
+
+
+void layerCopyWeights(Layer *dest, Layer *src) {
+    if (dest->featuresNumber != src->featuresNumber || dest->neuronsNumber != src->neuronsNumber) {
+        printf("Erreur: Dimensions des couches incompatibles pour la copie.\n");
+        return;
+    }
+    
+    int nbWeights = dest->featuresNumber * dest->neuronsNumber;
+    memcpy(dest->weights, src->weights, nbWeights * sizeof(double));
+    memcpy(dest->biases, src->biases, dest->neuronsNumber * sizeof(double));
+}
+
+
+void layerSave(Layer *l, FILE *file) {
+    int nbWeights = l->featuresNumber * l->neuronsNumber;
+    fwrite(l->weights, sizeof(double), nbWeights, file);
+    fwrite(l->biases, sizeof(double), l->neuronsNumber, file);
+}
+
+
+void layerLoad(Layer *l, FILE *file) {
+    int nbWeights = l->featuresNumber * l->neuronsNumber;
+    if (fread(l->weights, sizeof(double), nbWeights, file) != 0) {};
+    if (fread(l->biases, sizeof(double), l->neuronsNumber, file) != 0) {};
+}

@@ -16,8 +16,8 @@ float sum(float *a1, float *a2, int s) {
     return r;
 }
 
-float arrayMax(float *a, int n) {
-    float m = a[0];
+double arrayMax(double *a, int n) {
+    double m = a[0];
     for (int i = 1; i < n; ++i) {
         if (a[i] > m) m = a[i];
     }
@@ -32,8 +32,8 @@ double arrayMaxDouble(double *a, int n) {
     return m;
 }
 
-int arrayMaxIndex(float *a, int n) {
-    float m = a[0];
+int arrayMaxIndex(double *a, int n) {
+    double m = a[0];
     int index = 0;
     for (int i = 1; i < n; ++i) {
         if (a[i] > m) {

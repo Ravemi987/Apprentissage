@@ -51,7 +51,7 @@ typedef struct {
     double phi, theta, psi; // Angles roll, pitch et yaw
     double phi_dot, theta_dot, psi_dot; // Dérivées des angles
     double p, q, r; // Vitesse angulaire
-    double p_dot, q_dot, r_dot; /// Dérivées des vitesses angulaires
+    double p_dot, q_dot, r_dot; // Dérivées des vitesses angulaires
     double omega[4]; // Vitesses de rotation des moteurs
 
     double target_thrust;
@@ -98,9 +98,9 @@ void handleCommand(Drone *d, int action);
 
 void physicsStep(World *w, double dt);
 
-double computeRSSI(Drone* d, User* u);
+int isDroneCrashed(World *w);
 
-double getReward(World *w);
+double computeRSSI(Drone* d, User* u);
 
 void exportStateToJSON(World *w, const char *filepath);
 

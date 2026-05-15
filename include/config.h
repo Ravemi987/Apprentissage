@@ -10,13 +10,11 @@ typedef struct s_rl_config Config;
 Structure contenant tous les hyperparamètres et paramètres
 */
 struct s_rl_config {
-    double gamma;
-    double alpha;
-    double epsilon;
-    double epsilon_min;
-    double epsilon_decay;
-    int steps;
-    int epochs;
+    double gamma;           // Discount factor : importance donnée aux récompenses futures (0 = aucune, 1 = importante)
+    double epsilon;         // Taux d'exploration
+    double epsilon_min;     // Taux minimum d'exploration (une fois que le réseau à bien appris)
+    double epsilon_decay;   // Plus le réseau apprend, moins on a besoin de choisir une action au hasard
+    int epochs;             // Nombre d'epochs max pour le Deep-Q-Learning (tous les combien on reset l'environnement)
 };
 
 Config defaultConfig(void);
@@ -24,10 +22,6 @@ Config defaultConfig(void);
 void configSetGamma(Config *cfg, float v);
 
 void configSetEpsilon(Config *cfg, float v);
-
-void configSetAlpha(Config *cfg, float v);
-
-void configSetSteps(Config *cfg, int v);
 
 void configSetEpochs(Config *cfg, int v);
 

@@ -26,7 +26,7 @@ NeuralNetwork *networkInitWithWeights(int* layerSizes, int nbSizes, double* allW
 
 double *nnForwardPropagation(NeuralNetwork *nn, double *inputs, int batchSize);
 
-void nnTrain(NeuralNetwork *nn, double *trainInputs, double *expectedOutput, int numSamples, int numClasses,
+void networkTrain(NeuralNetwork *nn, double *trainInputs, double *expectedOutput, int numSamples, int numClasses,
             double learningRate, int iterationsNumber, int batchSize, double decay);
 
 // Alloue de la mémoire !
@@ -40,5 +40,11 @@ int *nnPredictAllClasses(NeuralNetwork *nn, double *inputs, int numSamples);
 void nnDisplayTestAccuracy(NeuralNetwork *nn, double *inputs, double *expectedClasses, int numSamples);
 
 void networkDestroy(NeuralNetwork **nn);
+
+void networkCopyWeights(NeuralNetwork *dest, NeuralNetwork *src);
+
+void networkSave(NeuralNetwork *nn, const char *filepath);
+
+void networkLoad(NeuralNetwork *nn, const char *filepath);
 
 #endif

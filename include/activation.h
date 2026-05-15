@@ -26,4 +26,6 @@ ActivationFunction *getSiLUActivation();
 
 ActivationFunction *getSoftMaxActivation();
 
+ActivationFunction *getLinearActivation();
+
 #endif

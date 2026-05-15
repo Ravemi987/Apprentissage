@@ -56,7 +56,7 @@ int main() {
 
     printf("--- Entraînement XOR (Sortie 2 neurones + Softmax) ---\n");
     // numClasses = 2 pour activer le One-Hot encoding correct
-    nnTrain(nn, trainInputs, trainLabels, 4, 2, 1.0, 1000, 4, 1.0E-4);
+    networkTrain(nn, trainInputs, trainLabels, 4, 2, 1.0, 1000, 4, 1.0E-4);
 
     printf("\n--- Résultats des prédictions ---\n");
     for (int i = 0; i < 4; i++) {

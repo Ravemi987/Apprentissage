@@ -3,30 +3,36 @@
 
 #include <stdbool.h>
 #include <stdio.h>
-#include "state.h"
 
 #include "simulation.h"
 
 
 typedef struct s_rl_env {
-    World *physical_world;  // Monde physique
+    World *physical_world;              // Monde physique
     
-    State current_state;    // Etat courant
-    int is_terminal;        // Pour savoir si l'état est terminal : l'agent atteint son objectif ou a échoué
-    double current_reward;
+    double current_state[NB_STATES];    // Etat courant, important pour pouvoir avancer dans l'apprentissage (passer d'état en état)
+    int is_terminal;                    // Savoir si l'état est terminal : l'agent atteint son objectif (ex: max_step) ou a échoué (crash ,...)
+    double current_reward;              // Récompense courante (dernière reçue)
 
-    double target_x;
+    double target_x;          // Coordonnées du point qu'on veut atteindre
     double target_y;
     double target_z;
-    int step_count;         // Calcul du nombre d'étapes de la simulations physiques
-    int max_steps;          // Nombre d'étapes maximum de simulation de la physique
+
+    int max_steps;            // Nombre d'étapes maximum d'étapes que le drone peut faire (batterie max)
 } Env;
 
 
-void envStep(Env *env, State *next_state, double *reward, int *is_terminal, int action_idx);
+void envStep(Env *env, double *next_state, double *reward, int *is_terminal, int action_idx, int step_count);
+
+int isTerminalState(Env *env, int step_count);
+
+double getReward(Env *env);
+
+double computeDistanceToTarget(Env *env);
 
 void resetEnv(Env *env);
 
-Env *initEnv(World *w);
+Env *initEnv(World *w, double *target);
+
 
 #endif

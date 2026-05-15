@@ -23,6 +23,8 @@ void setNonBlockingMode(int enable) {
 
 
 int main() {
+    srand(time(NULL));
+
     // Initialisation des structutres
     Drone d = createDrone(100.0, 50.0, 10.0);
     User users[2] = { {40, 40, 0}, {160, 60, 0} }; 

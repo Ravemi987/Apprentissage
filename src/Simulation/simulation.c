@@ -24,7 +24,19 @@ Drone createDrone(double x, double y, double z) {
 }
 
 
-/* Ajoute des contraintes au déplacement (crash, limite de la carte) */
+/* Similaire à applyLimits, mais renvoie seulement si oui ou non le drone atteint une limite */
+int isDroneCrashed(World *w) {
+    Drone *d = w->drone;
+
+    if(d->x <=0 || d->x >= w->width) return 1;
+    if(d->y <=0 || d->y >= w->height) return 1;
+    if(d->z <=0 || d->z >= w->depth) return 1;
+
+    return 0;
+}
+
+
+/* Ajoute des contraintes au déplacement (limite de la carte) */
 void applyLimits(World *w) {
     Drone *d = w->drone;
 
@@ -232,9 +244,7 @@ double computeRSSI(Drone *d, User *u) {
 }
 
 
-double getReward(World *w) {
-    return 0.0;
-}
+/* ========= SAVE ========= */
 
 
 /* Exporte l'état du monde dans un fichier JSON pour l'interface Web */

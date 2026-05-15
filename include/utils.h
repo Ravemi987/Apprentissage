@@ -3,11 +3,11 @@
 
 float sum(float *a1, float *a2, int s);
 
-float arrayMax(float *a, int end);
+float arrayMax(double *a, int end);
 
 double arrayMaxDouble(double *a, int end);
 
-int arrayMaxIndex(float *a, int end);
+int arrayMaxIndex(double *a, int end);
 
 void arrayRandom(int *a, int nStates, int nActions);
 

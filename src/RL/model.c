@@ -8,10 +8,19 @@
 #include <math.h>
 
 
-/* Init */
-
+/*
+ * Ici on créé un réseau de neurones avec en entrée les données qui définissent un état (vitesse, position, ...),
+ * deux hidden layers (normalement suffisant: 128 * 64 ou 64 * 64 ou 128 * 128 par exemple en fonction des perfs)
+ * et le vecteur de valeurs des actions. La valeur la plus élevée donne l'action à prendre
+ * On utilise la MSE.
+ * Pour la navigation, ReLU fait le taffe comme fonction d'activation pour les couches cachées car c'est rapide
+ * et ça évite le problème du vanishing gradient avec l'équation de Bellman.
+ * En sortie, on a absolument besoin de Linear, car on a besoin des valeurs exactes prédites pour l'état suivant (position, ...)
+ * (Softmax et Sigmoid donnent des probas donc poubelle).
+ * A la limite, tweaker les couches internes et la batchsize.
+*/
 static NeuralNetwork *initNetwork(int batchSize) {
-    int layerSizes[] = {NB_STATES, 128, 64, NB_ACTION};
+    int layerSizes[] = {NB_STATES, 64, 64, NB_ACTION};
     int numLayers = sizeof(layerSizes) / sizeof(layerSizes[0]);
     return networkCreate(layerSizes, numLayers, "mean_squared_error", "relu", "linear", batchSize);
 }
@@ -28,16 +37,23 @@ static ReplayBuffer *initReplayBuffer() {
 }
 
 
-DQNModel* DQNModelCreate(World *w, int update_freq, int batchSize) {
+/* 
+ * Initialise un modèle DQN avec tout ce qu'il faut
+ * On passe une config par defaut, on ne choisit que la fréquence de synchronisation des DNN,
+ * et la taille d'un batch
+*/
+DQNModel* DQNModelCreate(World *w, int update_freq, int batchSize, double learningRate, double decay, double *target) {
     DQNModel *m = malloc(sizeof(struct s_rl_model));
 
     m->batchSize = batchSize;
     m->q_network = initNetwork(batchSize);
     m->target_network = initNetwork(batchSize);
     m->memory = initReplayBuffer();
-    m->env = initEnv(w);
+    m->env = initEnv(w, target);
     m->config = defaultConfig();
-    m->train_step_count = 0;
+    m->step_count = 0;
+    m->learningRate = learningRate;
+    m->decay = decay;
     m->networks_update_freq = update_freq;
     return m;
 };
@@ -57,58 +73,187 @@ void DQNModelDelete(DQNModel **m) {
 }
 
 
-/* Setters */
-
 void DQNModelSetConfig(DQNModel *m, Config cfg) {
     m->config = cfg;
 }
 
-
-/* Getters */
 
 Config* DQNModelGetConfig(DQNModel *m) {
     return &(m->config);
 }
 
 
-/* Algorithm */
+void DQNModelSetPath(DQNModel *m, char *path) {
+    m->path = path;
+}
 
-int predict(DQNModel *m, State state) {
+
+/*
+ * Fonction appelée dans l'algo du Deep-Q-Learning et qui fait deux choses:
+ * - Décide si on explore (valeur aléatoire dépendant d'epsilon) ou si on exploite (prédiction avec le réseau)
+ * - Dans ce cas, on fait une forward pass et un argmax pour récupérer la meilleure action
+ */
+int predict(DQNModel *m, double *state) {
     float r = (float)rand() / (float)RAND_MAX;
     int action;
 
     if (r < m->config.epsilon) {
         action =  rand() % NB_ACTION;
-        epsilonDecay(&m->config);
     } else {
-        double *q_values = nnForwardPropagation(m->q_network, state.features, m->batchSize);
-        action = nnPredictClass(m, q_values);
+        double *q_values = nnForwardPropagation(m->q_network, state, m->batchSize);
+        action = arrayMaxIndex(q_values, NB_ACTION);
     }
 
     return action;
 }
 
 
+void copyTransition(Transition *copy, double *current_state, int action, double reward, double *next_state, int is_terminal) {
+    // On copie les données une par une
+    memcpy((*copy).state, current_state, NB_STATES * sizeof(double));
+    memcpy((*copy).next_state, next_state, NB_STATES * sizeof(double));
+
+    (*copy).action = action;
+    (*copy).reward = reward;
+    (*copy).next_state_terminal = is_terminal;
+}
+
+
+void saveTransition(ReplayBuffer *b, Transition t) {
+    b->buffer[b->head] = t; // Copie des données
+    b->head = (b->head + 1) % b->capacity; // Comportement circulaire
+    if (b->size < b->capacity) {
+        b->size++;
+    }
+}
+
+
+/* Fonction qui retourne un batch aléatoire du ReplayBuffer (voir model.h) */
+void getRandomBatch(ReplayBuffer *r, Transition *batch, int batchSize) {
+    Transition *buffer_copy = malloc(r->size * sizeof(Transition));
+    memcpy(buffer_copy, r->buffer, r->size);
+
+    int index;
+    int count = 0;
+
+    do
+    {
+        index = rand() % (batchSize - 1);
+        batch[index] = buffer_copy[index];
+        buffer_copy[index].flag = 1;
+        count++;
+
+    } while (buffer_copy[index].flag == 0 && count < r->size);
+
+    free(buffer_copy);
+}
+
+
+/*
+ * Fonction qui entraine le q_network, voir la fonction DeepQLearning.
+ * L'idée est de construire artificiellement les expected_outputs pour forcer le réseau de neurones 
+ * à n'apprendre que de l'action qu'il a réellement vécue, sans toucher au reste (les autres poids).
+*/
+void updateNetwork(DQNModel *m) {
+    Transition batch[m->batchSize];
+    getRandomBatch(m->memory, batch, m->batchSize); // On commence par récupérer un batch de données passées
+
+    // On doit préparer l'appel à la fonction Train (et donc la descente de gradient) pour entraîner le réseau
+    double *inputs = malloc(m->batchSize * NB_STATES * sizeof(double));
+    double *expected_outputs = malloc(m->batchSize * NB_ACTION * sizeof(double));
+
+    // On prend un batch complet du ReplayBuffer pour entraîner le réseau
+    for (int i = 0; i < m->batchSize; ++i) {
+        // Première prédiction nous donne l'évaluation COURANTE (q_network) des valeurs des actions dans l'ancien état S
+        double *current_q = nnForwardPropagation(m->q_network, batch[i].state, 1); 
+
+        // On copie ces valeurs dans notre tableau d'expected_output. De ce fait, les actions non choisies n'impacteront pas les poids
+        memcpy(&expected_outputs[i * NB_ACTION], current_q, NB_ACTION * sizeof(double));
+
+        // Estimation futur (c'est la récompense immédiate obtenue en ayant choisi l'action A)
+        double target_value = batch[i].reward;
+
+        // S'il y avait un état suivant
+        if (batch[i].next_state_terminal == 0) {
+            // Deuxième prédiction sur S' (l'ancien état suivant) avec le Target Network pour inclure les estimations futures
+            double *next_q = nnForwardPropagation(m->target_network, batch[i].next_state, 1);
+
+            // On cherche la valeur max (Equation de Bellman)
+            double max_q = arrayMax(next_q, NB_ACTION);
+            target_value += m->config.gamma * max_q;
+        }
+
+        // A ce stade, on modifie expected_outputs pour remplacer la valeur de l'action choisie par la meilleure (dans ce batch)
+        expected_outputs[i * NB_ACTION + batch[i].action] = target_value;
+        // On remplit les inputs
+        memcpy(&inputs[i * NB_STATES], batch[i].state, NB_STATES * sizeof(double));
+    }
+
+    // On entraîne maintenant le réseau sur le batch
+    networkTrain(m->q_network, inputs, expected_outputs, m->batchSize, NB_ACTION, m->learningRate, 1, m->batchSize, m->decay);
+
+    free(inputs);
+    free(expected_outputs);
+}
+
+
+/* 
+ * Algorithme d'entraînement.
+ * 
+*/
 void DeepQLearning(DQNModel *m) {
-    float alpha = m->config.alpha;
-    float gamma = m->config.gamma;
-    State next_state;
+    double next_state[NB_STATES];
     double reward;
     int is_terminal;
     Env *env = m->env;
 
+    // On fait un certain nombre d'epochs (entraînement complet) pour valider la généralisation du réseau
     for (int epoch = 0; epoch < m->config.epochs; ++epoch) {
-        resetEnv(env);
+        resetEnv(env);  // Au début de chaque epochs, il faut repartir de l'état initial (comme le Q-Learning classique)
+        double total_epoch_reward = 0.0;
 
-        for (int step = 0; step < m->config.steps; ++step) {
+        for (m->step_count = 0; m->step_count < env->max_steps; ++(m->step_count)) {
+            // On choisit l'action à prendre (action réelle du drone)
             int action = predict(m, env->current_state);
-            envStep(env, &next_state, &reward, &is_terminal, action);
 
-            Transition copy = {env->current_state, action, reward, next_state, is_terminal};
+            // Transition
+            envStep(env, next_state, &reward, &is_terminal, action, m->step_count);
+            total_epoch_reward += reward;
+
+            // On sauvegarde : état de départ, action prise, récompense obtenue, état d'arrivée
+            Transition copy;
+            copyTransition(&copy, env->current_state, action, reward, next_state, is_terminal);
             saveTransition(m->memory, copy);
 
-            env->current_state = next_state;
+            // On passe au prochain état
+            memcpy(env->current_state, next_state, NB_STATES * sizeof(double));
 
+            // On met à jour le réseau
+            if (m->memory->size > m->batchSize) {
+                updateNetwork(m);
+            }
+
+            // On met à jour le clone (target_network)
+            if (m->step_count % m->networks_update_freq == 0) {
+                networkCopyWeights(m->target_network, m->q_network);
+            }
+
+            exportStateToJSON(env->physical_world, "web/state.json");
+            
+            usleep(5000);
+
+            if (is_terminal) break;
+        }
+
+        epsilonDecay(&m->config);
+
+        printf("Epoch %4d/%d | Steps: %4d | Total Reward: %7.2f | Epsilon: %.3f | Dist to Target: %.1fm\n", 
+               epoch + 1, m->config.epochs, m->step_count, total_epoch_reward, m->config.epsilon, computeDistanceToTarget(env));
+
+        // Sauvegarde automatique toutes les 50 epochs
+        if ((epoch + 1) % 50 == 0) {
+            networkSave(m->q_network, m->path);
+            printf(">>> Sauvegarde automatique (Epoch %d) ! <<<\n", epoch + 1);
         }
     }
 }

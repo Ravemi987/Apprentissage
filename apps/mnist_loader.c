@@ -172,8 +172,8 @@ int main() {
 
     printf("\n--- Debut de l'entrainement ---\n");
     
-    // nnTrain(nn, inputs, expectedLabels, numSamples, numClasses, learningRate, epochs, batchSize, decay)
-    nnTrain(nn, trainData, trainLabels, trainNbImages, numClasses, learningRate, epochs, batchSize, decay);
+    // networkTrain(nn, inputs, expectedLabels, numSamples, numClasses, learningRate, epochs, batchSize, decay)
+    networkTrain(nn, trainData, trainLabels, trainNbImages, numClasses, learningRate, epochs, batchSize, decay);
 
     printf("\n--- Test du modele ---\n");
 
