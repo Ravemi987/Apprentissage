@@ -46,32 +46,39 @@ double getReward(Env *env) {
     Drone *d = w->drone;
     double reward = 0.0;
 
+    // Distance actuelle à la cible
+    double curr_dist = computeDistanceToTarget(env);
+
+    // Reconstruction de la distance précédente grâce à env->current_state (qui contient encore les coordonnées d'avant le pas physique)
+    double old_dx = env->current_state[0] * w->width;
+    double old_dy = env->current_state[1] * w->height;
+    double old_dz = env->current_state[2] * w->depth;
+    double prev_dist = sqrt(old_dx * old_dx + old_dy * old_dy + old_dz * old_dz);
+
+    // Bonus de progression vers la cible (positif ou négatif)
+    double progress = prev_dist - curr_dist;
+    reward += progress * 15.0;
+
     // Pénalité de temps
-    reward -= 0.1;
+    reward -= 0.05;
 
-    // Pénalité de distance
-    double dist = computeDistanceToTarget(env);
-    reward -= dist * 0.5;
-
-    // Pénalité de non stabilité
-    reward -= (fabs(d->phi) + fabs(d->theta)) * 0.2; // Roulis et Tangage
-    reward -= (fabs(d->p) + fabs(d->q) + fabs(d->r)) * 0.05; // Vitesses angulaires
+    // Pénalité d'excès de vitesse (magnitude de la vitesse au carré)
+    double speed_squared = pow(d->x_dot, 2) + pow(d->y_dot, 2) + pow(d->z_dot, 2);
+    reward -= speed_squared * 0.001;
 
     // Pénalité de non évitement d'obstacles / utilisateurs
     for (int i = 0; i < w->numUsers; i++) {
-        double dist_user = sqrt(pow(d->x - w->users[i].x, 2) + 
-                                pow(d->y - w->users[i].y, 2) + 
-                                pow(d->z - w->users[i].z, 2));
+        double dist_user = sqrt(pow(d->x - w->users[i].x, 2) + pow(d->y - w->users[i].y, 2) + pow(d->z - w->users[i].z, 2));
         if (dist_user < SAFETY_RADIUS) {
-            reward -= 5.0;
+            reward -= 2.0;
         }
     }
 
     // Pour les récompenses terminales, il faut utiliser les mêmes règles que TerminalState
     if (isDroneCrashed(w)) {
-        reward -= 100.0;
-    } else if (dist < TARGET_RADIUS) {
-        reward += 100.0;
+        reward -= 200.0;
+    } else if (curr_dist < TARGET_RADIUS) {
+        reward += 500.0;
     }
 
     return reward;
@@ -136,7 +143,7 @@ void resetEnv(Env *env) {
 }
 
 
-Env *initEnv(World *w, double *target) {
+Env *initEnv(World *w, int max_steps, double *target) {
     Env *env = malloc(sizeof(Env));
 
     env->physical_world = w;
@@ -145,7 +152,7 @@ Env *initEnv(World *w, double *target) {
     env->target_x = target[0];
     env->target_y = target[1];
     env->target_z = target[2];
-    env->max_steps = 1000;
+    env->max_steps = max_steps;
 
     getStateVector(env, env->current_state);
 

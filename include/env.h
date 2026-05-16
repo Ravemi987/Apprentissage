@@ -32,7 +32,7 @@ double computeDistanceToTarget(Env *env);
 
 void resetEnv(Env *env);
 
-Env *initEnv(World *w, double *target);
+Env *initEnv(World *w, int max_steps, double *target);
 
 
 #endif

@@ -26,7 +26,10 @@ NeuralNetwork *networkInitWithWeights(int* layerSizes, int nbSizes, double* allW
 
 double *nnForwardPropagation(NeuralNetwork *nn, double *inputs, int batchSize);
 
-void networkTrain(NeuralNetwork *nn, double *trainInputs, double *expectedOutput, int numSamples, int numClasses,
+void networkTrainClassifier(NeuralNetwork *nn, double *trainInputs, double *expectedOutput, int numSamples, int numClasses,
+            double learningRate, int iterationsNumber, int batchSize, double decay);
+
+void networkTrain(NeuralNetwork *nn, double *trainInputs, double *expectedOutput, int numSamples, 
             double learningRate, int iterationsNumber, int batchSize, double decay);
 
 // Alloue de la mémoire !

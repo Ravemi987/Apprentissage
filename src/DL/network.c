@@ -163,8 +163,8 @@ static void nnGradientDescent(NeuralNetwork *nn, double *trainInputs, double *ex
     int outputCols = layerGetNeuronsNumber(getLastLayer(nn));
 
     int batchsNumber = (int)ceil((double)rows / batchSize);
-    double totalLoss = 0.0;
-    int totalCorrect = 0;
+    // double totalLoss = 0.0;
+    // int totalCorrect = 0;
 
     for (int batch = 0; batch < batchsNumber; batch++) {
         int start = batch * batchSize;
@@ -177,12 +177,12 @@ static void nnGradientDescent(NeuralNetwork *nn, double *trainInputs, double *ex
         
         nnBackPropagation(nn, outputsPtr, batchExpected, realBatchSize);
 
-        totalLoss += nn->lossFunction->globalLoss(outputsPtr, batchExpected, realBatchSize, outputCols) * realBatchSize;
-        totalCorrect += nnGetCorrectPredictions(outputsPtr, batchExpected, realBatchSize, outputCols); 
+        // totalLoss += nn->lossFunction->globalLoss(outputsPtr, batchExpected, realBatchSize, outputCols) * realBatchSize;
+        // totalCorrect += nnGetCorrectPredictions(outputsPtr, batchExpected, realBatchSize, outputCols); 
 
         nnUpdateAllWeights(nn, learningRate, realBatchSize);
     }
-    printf("Loss: %.6f - Accuracy: %.2f%%\n", totalLoss / rows, ((double)totalCorrect / rows) * 100.0);
+    //printf("Loss: %.6f - Accuracy: %.2f%%\n", totalLoss / rows, ((double)totalCorrect / rows) * 100.0);
 }
 
 
@@ -198,7 +198,7 @@ static double *oneHotEncode(double *expectedClasses, int numSamples, int numClas
 }
 
 
-void networkTrain(NeuralNetwork *nn, double *trainInputs, double *expectedOutput, int numSamples, int numClasses,
+void networkTrainClassifier(NeuralNetwork *nn, double *trainInputs, double *expectedOutput, int numSamples, int numClasses,
             double learningRate, int iterationsNumber, int batchSize, double decay) {
     double *encodedOutput = oneHotEncode(expectedOutput, numSamples, numClasses);
     double initialLr = learningRate;
@@ -208,10 +208,26 @@ void networkTrain(NeuralNetwork *nn, double *trainInputs, double *expectedOutput
         printf("Epoch %d - ", epoch);
         nnGradientDescent(nn, trainInputs, encodedOutput, numSamples, currentLr, batchSize);
         currentLr = initialLr / (1 + decay * epoch);
+        
         fflush(stdout);
     }
 
     free(encodedOutput);
+}
+
+
+void networkTrain(NeuralNetwork *nn, double *trainInputs, double *expectedOutput, int numSamples,
+            double learningRate, int iterationsNumber, int batchSize, double decay) {
+    double initialLr = learningRate;
+    double currentLr = initialLr;
+
+    for (int epoch = 0; epoch <= iterationsNumber; epoch++) {
+        //printf("Epoch %d - ", epoch);
+        nnGradientDescent(nn, trainInputs, expectedOutput, numSamples, currentLr, batchSize);
+        currentLr = initialLr / (1 + decay * epoch);
+        
+        fflush(stdout);
+    }
 }
 
 

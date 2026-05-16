@@ -9,7 +9,7 @@
 #include "network.h"
 #include "env.h"
 
-#define MEMORY_SIZE 1000
+#define MEMORY_SIZE 100000
 
 
 /*

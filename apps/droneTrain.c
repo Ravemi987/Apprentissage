@@ -26,10 +26,10 @@ int main() {
     // Initialisation de l'IA (Hyperparamètres)
     int update_freq = 1000;
     int batch_size = 64;
-    double learning_rate = 0.001;
+    double learning_rate = 1e-4;
     double decay = 0.0;
     
-    char *model_path = "drone_brain.bin";
+    char *model_path = "files/drone_brain.bin";
 
     printf("Création de l'agent DQN...\n");
     DQNModel *ai = DQNModelCreate(&w, update_freq, batch_size, learning_rate, decay, target);
@@ -39,7 +39,7 @@ int main() {
         printf("Modèle existant trouvé ! Reprise de l'entraînement...\n");
         networkLoad(ai->q_network, model_path);
         networkCopyWeights(ai->target_network, ai->q_network); // On synchronise le clone
-        ai->config.epsilon = 0.1; // Si on reprend, on baisse l'exploration (10% max)
+        ai->config.epsilon = 0.890; // Si on reprend, on baisse l'exploration (10% max)
     } else {
         printf("Aucun modèle trouvé. Démarrage d'un nouvel entraînement.\n");
     }

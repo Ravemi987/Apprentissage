@@ -31,8 +31,7 @@ static ReplayBuffer *initReplayBuffer() {
     b->capacity = MEMORY_SIZE;
     b->size = 0;
     b->head = 0;
-    b->buffer = malloc(MEMORY_SIZE * sizeof(Transition));
-    memset(b->buffer, 0, MEMORY_SIZE);
+    b->buffer = calloc(MEMORY_SIZE, sizeof(Transition));
     return b;
 }
 
@@ -49,8 +48,8 @@ DQNModel* DQNModelCreate(World *w, int update_freq, int batchSize, double learni
     m->q_network = initNetwork(batchSize);
     m->target_network = initNetwork(batchSize);
     m->memory = initReplayBuffer();
-    m->env = initEnv(w, target);
     m->config = defaultConfig();
+    m->env = initEnv(w, m->config.max_steps, target);
     m->step_count = 0;
     m->learningRate = learningRate;
     m->decay = decay;
@@ -130,22 +129,23 @@ void saveTransition(ReplayBuffer *b, Transition t) {
 
 /* Fonction qui retourne un batch aléatoire du ReplayBuffer (voir model.h) */
 void getRandomBatch(ReplayBuffer *r, Transition *batch, int batchSize) {
-    Transition *buffer_copy = malloc(r->size * sizeof(Transition));
-    memcpy(buffer_copy, r->buffer, r->size);
+    if (r->size < batchSize) return;
 
-    int index;
+    for (int i = 0; i < r->size; i++) {
+        r->buffer[i].flag = 0;
+    }
+
     int count = 0;
 
-    do
-    {
-        index = rand() % (batchSize - 1);
-        batch[index] = buffer_copy[index];
-        buffer_copy[index].flag = 1;
-        count++;
+    while (count < batchSize) {
+        int randomIndex = rand() % r->size;
 
-    } while (buffer_copy[index].flag == 0 && count < r->size);
-
-    free(buffer_copy);
+        if (r->buffer[randomIndex].flag == 0) {
+            batch[count] = r->buffer[randomIndex];
+            r->buffer[randomIndex].flag = 1;
+            count++;
+        }
+    }
 }
 
 
@@ -160,12 +160,24 @@ void updateNetwork(DQNModel *m) {
 
     // On doit préparer l'appel à la fonction Train (et donc la descente de gradient) pour entraîner le réseau
     double *inputs = malloc(m->batchSize * NB_STATES * sizeof(double));
+    double *next_inputs = malloc(m->batchSize * NB_STATES * sizeof(double));
     double *expected_outputs = malloc(m->batchSize * NB_ACTION * sizeof(double));
 
     // On prend un batch complet du ReplayBuffer pour entraîner le réseau
     for (int i = 0; i < m->batchSize; ++i) {
-        // Première prédiction nous donne l'évaluation COURANTE (q_network) des valeurs des actions dans l'ancien état S
-        double *current_q = nnForwardPropagation(m->q_network, batch[i].state, 1); 
+        // On sauvegarde les inputs !
+        memcpy(&inputs[i * NB_STATES], batch[i].state, NB_STATES * sizeof(double));
+        memcpy(&next_inputs[i * NB_STATES], batch[i].next_state, NB_STATES * sizeof(double));
+    }
+
+    // Première prédiction nous donne l'évaluation COURANTE (q_network) des valeurs des actions dans l'ancien état S
+    double *all_current_q = nnForwardPropagation(m->q_network, inputs, m->batchSize);
+    // Deuxième prédiction sur S' (l'ancien état suivant) avec le Target Network pour inclure les estimations futures
+    double *all_next_q =  nnForwardPropagation(m->target_network, next_inputs, m->batchSize);
+
+    // On construit expectedOutput
+    for (int i = 0; i < m->batchSize; ++i) {
+        double *current_q = &all_current_q[i * NB_ACTION]; // On récupère l'estimation courante
 
         // On copie ces valeurs dans notre tableau d'expected_output. De ce fait, les actions non choisies n'impacteront pas les poids
         memcpy(&expected_outputs[i * NB_ACTION], current_q, NB_ACTION * sizeof(double));
@@ -173,26 +185,22 @@ void updateNetwork(DQNModel *m) {
         // Estimation futur (c'est la récompense immédiate obtenue en ayant choisi l'action A)
         double target_value = batch[i].reward;
 
-        // S'il y avait un état suivant
+        // S'il y avait un état suivant, on récupère la meilleure estimation (Equation de Bellman)
         if (batch[i].next_state_terminal == 0) {
-            // Deuxième prédiction sur S' (l'ancien état suivant) avec le Target Network pour inclure les estimations futures
-            double *next_q = nnForwardPropagation(m->target_network, batch[i].next_state, 1);
-
-            // On cherche la valeur max (Equation de Bellman)
+            double *next_q = &all_next_q[i * NB_ACTION];
             double max_q = arrayMax(next_q, NB_ACTION);
             target_value += m->config.gamma * max_q;
         }
 
-        // A ce stade, on modifie expected_outputs pour remplacer la valeur de l'action choisie par la meilleure (dans ce batch)
+        // A ce stade, on injecte dans expected_outputs pour remplacer la valeur de l'action choisie par la meilleure (dans ce batch)
         expected_outputs[i * NB_ACTION + batch[i].action] = target_value;
-        // On remplit les inputs
-        memcpy(&inputs[i * NB_STATES], batch[i].state, NB_STATES * sizeof(double));
     }
 
     // On entraîne maintenant le réseau sur le batch
-    networkTrain(m->q_network, inputs, expected_outputs, m->batchSize, NB_ACTION, m->learningRate, 1, m->batchSize, m->decay);
+    networkTrain(m->q_network, inputs, expected_outputs, m->batchSize, m->learningRate, 1, m->batchSize, m->decay);
 
     free(inputs);
+    free(next_inputs);
     free(expected_outputs);
 }
 
@@ -238,10 +246,6 @@ void DeepQLearning(DQNModel *m) {
                 networkCopyWeights(m->target_network, m->q_network);
             }
 
-            exportStateToJSON(env->physical_world, "web/state.json");
-            
-            usleep(5000);
-
             if (is_terminal) break;
         }
 
@@ -250,10 +254,9 @@ void DeepQLearning(DQNModel *m) {
         printf("Epoch %4d/%d | Steps: %4d | Total Reward: %7.2f | Epsilon: %.3f | Dist to Target: %.1fm\n", 
                epoch + 1, m->config.epochs, m->step_count, total_epoch_reward, m->config.epsilon, computeDistanceToTarget(env));
 
-        // Sauvegarde automatique toutes les 50 epochs
         if ((epoch + 1) % 50 == 0) {
-            networkSave(m->q_network, m->path);
             printf(">>> Sauvegarde automatique (Epoch %d) ! <<<\n", epoch + 1);
+            networkSave(m->q_network, m->path);
         }
     }
 }

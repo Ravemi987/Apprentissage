@@ -36,7 +36,7 @@ int isDroneCrashed(World *w) {
 }
 
 
-/* Ajoute des contraintes au déplacement (limite de la carte) */
+/* Ajoute des contraintes au déplacement physiques quand on le pilote (limites de la carte) */
 void applyLimits(World *w) {
     Drone *d = w->drone;
 
