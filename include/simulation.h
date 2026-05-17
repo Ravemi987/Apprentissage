@@ -28,12 +28,12 @@
 #define MAX_VELOCITY 30.0
 #define DRAG_COEFF (0.5 * RHO * 0.1 * D * MATH_PI * pow(RADIUS, 2)) // Coefficient de traînée aérodynamique
 
-#define SIGNAL_BASE_POWER -30.0  // -30.0 dBm : Puissance à 1m
+#define SIGNAL_BASE_POWER -75.0  // -30.0 dBm : Puissance à 1m
 #define PATH_LOSS_EXPONENT 2.0   // Milieu Hertzien
 
-#define NB_ACTION 9
-#define NB_STATES 12
+#define SAFETY_RADIUS 2.0   // Distance de sécurité avec les objets
 
+#define NB_ACTION 9
 
 typedef struct {
     double kp;
@@ -85,10 +85,19 @@ typedef struct {
 
 
 typedef struct {
+    double x, y, z;
+    double radius;  // Rayon
+    double height;  // Hauteur
+} Obstacle3D;
+
+
+typedef struct {
     Drone *drone;
     User *users;
+    Obstacle3D *obstacles;
     int numUsers;
-    double width, height, depth;    // Dimensions de la carte
+    int numObstacles;
+    double width, height, depth;    // Dimensions de la carte. Attention, depth est la vraie hauteur ! (axe Z vers le haut)
 } World;
 
 
@@ -103,5 +112,7 @@ int isDroneCrashed(World *w);
 double computeRSSI(Drone* d, User* u);
 
 void exportStateToJSON(World *w, const char *filepath);
+
+int collisionWithUser(World *w);
 
 #endif

@@ -80,7 +80,7 @@ typedef struct s_rl_model {
 
 void DeepQLearning(DQNModel *m);
 
-DQNModel* DQNModelCreate(World *w, int update_freq, int batchSize, double learningRate, double decay, double *target);
+DQNModel* DQNModelCreate(World *w, int update_freq, int batchSize, double learningRate, double decay);
 
 void DQNModelDelete(DQNModel **m);
 

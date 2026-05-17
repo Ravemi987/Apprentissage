@@ -41,7 +41,7 @@ static ReplayBuffer *initReplayBuffer() {
  * On passe une config par defaut, on ne choisit que la fréquence de synchronisation des DNN,
  * et la taille d'un batch
 */
-DQNModel* DQNModelCreate(World *w, int update_freq, int batchSize, double learningRate, double decay, double *target) {
+DQNModel* DQNModelCreate(World *w, int update_freq, int batchSize, double learningRate, double decay) {
     DQNModel *m = malloc(sizeof(struct s_rl_model));
 
     m->batchSize = batchSize;
@@ -49,7 +49,7 @@ DQNModel* DQNModelCreate(World *w, int update_freq, int batchSize, double learni
     m->target_network = initNetwork(batchSize);
     m->memory = initReplayBuffer();
     m->config = defaultConfig();
-    m->env = initEnv(w, m->config.max_steps, target);
+    m->env = initEnv(w, m->config.max_steps);
     m->step_count = 0;
     m->learningRate = learningRate;
     m->decay = decay;
@@ -164,6 +164,7 @@ void updateNetwork(DQNModel *m) {
     double *expected_outputs = malloc(m->batchSize * NB_ACTION * sizeof(double));
 
     // On prend un batch complet du ReplayBuffer pour entraîner le réseau
+    #pragma omp parallel for
     for (int i = 0; i < m->batchSize; ++i) {
         // On sauvegarde les inputs !
         memcpy(&inputs[i * NB_STATES], batch[i].state, NB_STATES * sizeof(double));
@@ -176,6 +177,7 @@ void updateNetwork(DQNModel *m) {
     double *all_next_q =  nnForwardPropagation(m->target_network, next_inputs, m->batchSize);
 
     // On construit expectedOutput
+    #pragma omp parallel for
     for (int i = 0; i < m->batchSize; ++i) {
         double *current_q = &all_current_q[i * NB_ACTION]; // On récupère l'estimation courante
 
@@ -251,8 +253,8 @@ void DeepQLearning(DQNModel *m) {
 
         epsilonDecay(&m->config);
 
-        printf("Epoch %4d/%d | Steps: %4d | Total Reward: %7.2f | Epsilon: %.3f | Dist to Target: %.1fm\n", 
-               epoch + 1, m->config.epochs, m->step_count, total_epoch_reward, m->config.epsilon, computeDistanceToTarget(env));
+        printf("Epoch %4d/%d | Steps: %4d | Total Reward: %7.2f | Epsilon: %.3f\n", 
+               epoch + 1, m->config.epochs, m->step_count, total_epoch_reward, m->config.epsilon);
 
         if ((epoch + 1) % 50 == 0) {
             printf(">>> Sauvegarde automatique (Epoch %d) ! <<<\n", epoch + 1);

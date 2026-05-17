@@ -24,6 +24,40 @@ Drone createDrone(double x, double y, double z) {
 }
 
 
+/* Fonction pour détecter les collisions avec les utilisateurs, similaire à collisionWithObstacle */
+int collisionWithUser(World *w) {
+    Drone *d = w->drone;
+
+    for (int i = 0; i < w->numUsers; i++) {
+        User u = w->users[i];
+        
+        // Un piéton est au sol (z=0) et mesure environ 2m de haut
+        if (d->z >= 0.0 && d->z <= 2.0) {
+            double dist_horiz = sqrt(pow(d->x - u.x, 2) + pow(d->y - u.y, 2));
+            if (dist_horiz < 1.0) return 1;
+        }
+    }
+    return 0;
+}
+
+
+int collisionWithObstacle(World *w) {
+    Drone *d = w->drone;
+
+    for (int i = 0; i < w->numObstacles; i++) {
+        Obstacle3D obs = w->obstacles[i];
+        // On vérifie si le drone est en dessous de la hauteur de l'obstacle (mais pas forcément dedans)
+        if (d->z >= obs.z && d->z <= (obs.z + obs.height)) {
+            // On calcul la distance horizontale pour détecter si le drone est réellement dedans
+            double dist_horiz = sqrt(pow(d->x - obs.x, 2) + pow(d->y - obs.y, 2));
+            if (dist_horiz < obs.radius) return 1;
+        }
+    }
+
+    return 0;
+}
+
+
 /* Similaire à applyLimits, mais renvoie seulement si oui ou non le drone atteint une limite */
 int isDroneCrashed(World *w) {
     Drone *d = w->drone;
@@ -32,13 +66,82 @@ int isDroneCrashed(World *w) {
     if(d->y <=0 || d->y >= w->height) return 1;
     if(d->z <=0 || d->z >= w->depth) return 1;
 
+    if (collisionWithObstacle(w)) return 1;
+
+    if (collisionWithUser(w)) return 1;
+
     return 0;
+}
+
+
+void handleCollisionWithObstacle(World * w) {
+    Drone *d = w->drone;
+
+    for (int i = 0; i < w->numObstacles; i++) {
+        Obstacle3D obs = w->obstacles[i];
+        
+        // Si le drone est dans la tranche verticale de l'obstacle
+        if (d->z >= obs.z && d->z <= (obs.z + obs.height)) {
+            double dx = d->x - obs.x;
+            double dy = d->y - obs.y;
+            double dist_horiz = sqrt(dx * dx + dy * dy);
+
+            // S'il a pénétré à l'intérieur du rayon de l'obstacle
+            if (dist_horiz < obs.radius) {
+                // Évitement de la division par zéro si le drone est pile au centre
+                if (dist_horiz < 1e-5) { dx = 1.0; dy = 0.0; dist_horiz = 1.0; }
+
+                // On repousse le drone
+                d->x = obs.x + (dx / dist_horiz) * obs.radius;
+                d->y = obs.y + (dy / dist_horiz) * obs.radius;
+
+                // Annulation des viteses (L'impact arrête le mouvement)
+                d->x_dot = 0.0;
+                d->y_dot = 0.0;
+                d->z_dot = 0.0;
+            }
+        }
+    }
+}
+
+
+void handleCollisionWithUsers(World *w) {
+    Drone *d = w->drone;
+
+    for (int i = 0; i < w->numUsers; i++) {
+        User u = w->users[i];
+        
+        // Un piéton est au sol (z=0) et mesure environ 2m de haut
+        if (d->z >= 0.0 && d->z <= 2.0) {
+            double dx = d->x - u.x;
+            double dy = d->y - u.y;
+            double dist_horiz = sqrt(dx * dx + dy * dy);
+            
+            double user_radius = 1.0;
+
+            // S'il rentre en collision physique avec l'utilisateur
+            if (dist_horiz < user_radius) {
+                if (dist_horiz < 1e-5) { dx = 1.0; dy = 0.0; dist_horiz = 1.0; }
+
+                // Push-back
+                d->x = u.x + (dx / dist_horiz) * user_radius;
+                d->y = u.y + (dy / dist_horiz) * user_radius;
+
+                // Annulation des vitesses
+                d->x_dot = 0.0;
+                d->y_dot = 0.0;
+                d->z_dot = 0.0;
+            }
+        }
+    }
 }
 
 
 /* Ajoute des contraintes au déplacement physiques quand on le pilote (limites de la carte) */
 void applyLimits(World *w) {
     Drone *d = w->drone;
+
+    // Limites de la carte
 
     // Axe X
     if (d->x < 0) { d->x = 0; d->x_dot = 0; }
@@ -62,6 +165,12 @@ void applyLimits(World *w) {
         d->p = 0; d->q = 0; d->r = 0;
         d->phi = 0; d->theta = 0;
     }
+
+    // Collision avec les obstacles (interdiction de traverser)
+    handleCollisionWithObstacle(w);
+
+    // Collision avec les utilisateurs
+    handleCollisionWithUsers(w);
 }
 
 
@@ -240,6 +349,7 @@ void physicsStep(World *w, double dt) {
 */
 double computeRSSI(Drone *d, User *u) {
     double dist = sqrt(pow(d->x - u->x, 2) + pow(d->y - u->y, 2) + pow(d->z - u->z, 2)) + 0.001;  // On évite log10(0)
+    if (dist < 1.0) dist = 1.0; // On met une limite de distance, car le 0.001 ne permet pas d'éviter le log(0) en pratique
     return SIGNAL_BASE_POWER - (10 * PATH_LOSS_EXPONENT * log10(dist));
 }
 
