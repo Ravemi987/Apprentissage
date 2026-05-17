@@ -28,7 +28,7 @@
 #define MAX_VELOCITY 30.0
 #define DRAG_COEFF (0.5 * RHO * 0.1 * D * MATH_PI * pow(RADIUS, 2)) // Coefficient de traînée aérodynamique
 
-#define SIGNAL_BASE_POWER -75.0  // -30.0 dBm : Puissance à 1m
+#define SIGNAL_BASE_POWER -30.0  // -30.0 dBm : Puissance à 1m
 #define PATH_LOSS_EXPONENT 2.0   // Milieu Hertzien
 
 #define SAFETY_RADIUS 2.0   // Distance de sécurité avec les objets

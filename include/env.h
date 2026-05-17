@@ -9,6 +9,7 @@
 #define GRID_SIZE 4
 #define MAX_CLOSEST_OBSTACLES 3
 #define NB_STATES (GRID_SIZE * GRID_SIZE + MAX_CLOSEST_OBSTACLES * 3 + 12)
+#define FRAME_SKIP 10   // Frame Skipping pour laisser à la physique le temps de calculer les mouvements de l'IA
 
 
 /*
@@ -30,13 +31,12 @@ typedef struct s_rl_env {
     int is_terminal;                    // Savoir si l'état est terminal : l'agent atteint son objectif (ex: max_step) ou a échoué (crash ,...)
     double current_reward;              // Récompense courante (dernière reçue)
 
-    int max_steps;            // Nombre d'étapes maximum d'étapes que le drone peut faire (batterie max)
+    int max_steps;                      // Nombre d'étapes maximum d'étapes que le drone peut faire (batterie max)
+    double previous_rssi_norm;          // Utile pour le calcul des rewards
 } Env;
 
 
-void envStep(Env *env, double *next_state, double *reward, int *is_terminal, int action_idx, int step_count);
-
-int isTerminalState(Env *env, int step_count);
+void envStep(Env *env, double *next_state, double *reward, int *is_terminal, int action_idx);
 
 double getReward(Env *env);
 

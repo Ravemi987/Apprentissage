@@ -20,7 +20,7 @@
  * A la limite, tweaker les couches internes et la batchsize.
 */
 static NeuralNetwork *initNetwork(int batchSize) {
-    int layerSizes[] = {NB_STATES, 64, 64, NB_ACTION};
+    int layerSizes[] = {NB_STATES, 256, 256, NB_ACTION};
     int numLayers = sizeof(layerSizes) / sizeof(layerSizes[0]);
     return networkCreate(layerSizes, numLayers, "mean_squared_error", "relu", "linear", batchSize);
 }
@@ -54,6 +54,11 @@ DQNModel* DQNModelCreate(World *w, int update_freq, int batchSize, double learni
     m->learningRate = learningRate;
     m->decay = decay;
     m->networks_update_freq = update_freq;
+
+    m->batch_inputs = malloc(m->batchSize * NB_STATES * sizeof(double));
+    m->batch_next_inputs = malloc(m->batchSize * NB_STATES * sizeof(double));
+    m->batch_expected_outputs = malloc(m->batchSize * NB_ACTION * sizeof(double));
+
     return m;
 };
 
@@ -66,6 +71,9 @@ void DQNModelDelete(DQNModel **m) {
     free((*m)->memory->buffer);
     free((*m)->memory);
     free((*m)->env);
+    free((*m)->batch_inputs);
+    free((*m)->batch_next_inputs);
+    free((*m)->batch_expected_outputs);
     free(*m);
 
     (*m) = NULL;
@@ -158,23 +166,18 @@ void updateNetwork(DQNModel *m) {
     Transition batch[m->batchSize];
     getRandomBatch(m->memory, batch, m->batchSize); // On commence par récupérer un batch de données passées
 
-    // On doit préparer l'appel à la fonction Train (et donc la descente de gradient) pour entraîner le réseau
-    double *inputs = malloc(m->batchSize * NB_STATES * sizeof(double));
-    double *next_inputs = malloc(m->batchSize * NB_STATES * sizeof(double));
-    double *expected_outputs = malloc(m->batchSize * NB_ACTION * sizeof(double));
-
     // On prend un batch complet du ReplayBuffer pour entraîner le réseau
     #pragma omp parallel for
     for (int i = 0; i < m->batchSize; ++i) {
         // On sauvegarde les inputs !
-        memcpy(&inputs[i * NB_STATES], batch[i].state, NB_STATES * sizeof(double));
-        memcpy(&next_inputs[i * NB_STATES], batch[i].next_state, NB_STATES * sizeof(double));
+        memcpy(&m->batch_inputs[i * NB_STATES], batch[i].state, NB_STATES * sizeof(double));
+        memcpy(&m->batch_next_inputs[i * NB_STATES], batch[i].next_state, NB_STATES * sizeof(double));
     }
 
     // Première prédiction nous donne l'évaluation COURANTE (q_network) des valeurs des actions dans l'ancien état S
-    double *all_current_q = nnForwardPropagation(m->q_network, inputs, m->batchSize);
+    double *all_current_q = nnForwardPropagation(m->q_network, m->batch_inputs, m->batchSize);
     // Deuxième prédiction sur S' (l'ancien état suivant) avec le Target Network pour inclure les estimations futures
-    double *all_next_q =  nnForwardPropagation(m->target_network, next_inputs, m->batchSize);
+    double *all_next_q =  nnForwardPropagation(m->target_network, m->batch_next_inputs, m->batchSize);
 
     // On construit expectedOutput
     #pragma omp parallel for
@@ -182,7 +185,7 @@ void updateNetwork(DQNModel *m) {
         double *current_q = &all_current_q[i * NB_ACTION]; // On récupère l'estimation courante
 
         // On copie ces valeurs dans notre tableau d'expected_output. De ce fait, les actions non choisies n'impacteront pas les poids
-        memcpy(&expected_outputs[i * NB_ACTION], current_q, NB_ACTION * sizeof(double));
+        memcpy(&m->batch_expected_outputs[i * NB_ACTION], current_q, NB_ACTION * sizeof(double));
 
         // Estimation futur (c'est la récompense immédiate obtenue en ayant choisi l'action A)
         double target_value = batch[i].reward;
@@ -195,15 +198,11 @@ void updateNetwork(DQNModel *m) {
         }
 
         // A ce stade, on injecte dans expected_outputs pour remplacer la valeur de l'action choisie par la meilleure (dans ce batch)
-        expected_outputs[i * NB_ACTION + batch[i].action] = target_value;
+        m->batch_expected_outputs[i * NB_ACTION + batch[i].action] = target_value;
     }
 
     // On entraîne maintenant le réseau sur le batch
-    networkTrain(m->q_network, inputs, expected_outputs, m->batchSize, m->learningRate, 1, m->batchSize, m->decay);
-
-    free(inputs);
-    free(next_inputs);
-    free(expected_outputs);
+    networkTrain(m->q_network, m->batch_inputs, m->batch_expected_outputs, m->batchSize, m->learningRate, 1, m->batchSize, m->decay);
 }
 
 
@@ -227,7 +226,7 @@ void DeepQLearning(DQNModel *m) {
             int action = predict(m, env->current_state);
 
             // Transition
-            envStep(env, next_state, &reward, &is_terminal, action, m->step_count);
+            envStep(env, next_state, &reward, &is_terminal, action);
             total_epoch_reward += reward;
 
             // On sauvegarde : état de départ, action prise, récompense obtenue, état d'arrivée

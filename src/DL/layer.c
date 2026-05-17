@@ -46,12 +46,16 @@ static void saveActivations(Layer *l, double *inputs, int batchSize) {
 }
 
 
+// Initialisation de He
 static void initWeights(Layer *l) {
+    double limit = sqrt(6.0 / (double)l->featuresNumber);
+
     for (int neuron = 0; neuron < l->neuronsNumber; ++neuron) {
-        l->biases[neuron] = ((double)rand() / (double)RAND_MAX) * 2.0 - 1.0;
+        l->biases[neuron] = 0.0; 
 
         for (int feature = 0; feature < l->featuresNumber; ++feature) {
-            l->weights[neuron * l->featuresNumber + feature] = ((double)rand() / (double)RAND_MAX) * 2.0 - 1.0;
+            double rand_val = ((double)rand() / (double)RAND_MAX) * 2.0 - 1.0;
+            l->weights[neuron * l->featuresNumber + feature] = rand_val * limit;
         }
     }
 }

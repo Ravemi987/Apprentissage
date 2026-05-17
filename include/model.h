@@ -73,8 +73,12 @@ typedef struct s_rl_model {
     double decay;                   // Decay pour le learning rate du réseau de neurone
     int networks_update_freq;       // Fréquence de synchronisation des deux réseaux (ex: 1000 steps)
     int step_count;                 // Compteur pour savoir quand synchroniser
-    
     char *path;                     // Chemin de sauvegarde
+
+    // Buffers pour éviter la réallocation lors de l'entraînement
+    double *batch_inputs;
+    double *batch_next_inputs;
+    double *batch_expected_outputs;
 } DQNModel;
 
 
