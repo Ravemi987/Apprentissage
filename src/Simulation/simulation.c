@@ -280,6 +280,13 @@ void updateAngularVelocities(World *w, double dt) {
 }
 
 
+static double wrapAngle(double angle) {
+    angle = fmod(angle + MATH_PI, 2.0 * MATH_PI); // Décalage pour centrer en 0 puis moduler 2 PI
+    if (angle < 0.0) angle += 2.0 * MATH_PI;   // Sécurité si nombre négatif
+    return angle - MATH_PI; // Recalage
+}
+
+
 void updateOrientation(World *w, double dt) {
     Drone *d = w->drone;
 
@@ -287,6 +294,13 @@ void updateOrientation(World *w, double dt) {
     d->phi = d->phi + (d->phi_dot * dt);
     d->theta = d->theta + (d->theta_dot * dt);
     d->psi = d->psi + (d->psi_dot * dt);
+
+    // Empeche l'explosion des gradients
+    d->phi = wrapAngle(d->phi);
+    d->psi = wrapAngle(d->psi);
+
+    if (d->theta > ANGLE_LIMIT)  d->theta = ANGLE_LIMIT;
+    if (d->theta < -ANGLE_LIMIT) d->theta = -ANGLE_LIMIT;
 }
 
 

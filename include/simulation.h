@@ -23,7 +23,7 @@
 #define RHO 1.225 // Densité de l'air en kg/m3
 #define RADIUS 0.0635 // Rayon des hélices en m
 #define MATH_PI 3.14159265358979323846 // PI
-#define ANGLE_LIMIT 0.5 // Limite pour éviter les singularités de gimbal lock
+#define ANGLE_LIMIT 0.8 // Limite pour éviter les singularités de gimbal lock
 #define MAX_ROT 5.0 // Vitesse de rotation maximale en rad/s
 #define MAX_VELOCITY 30.0
 #define DRAG_COEFF (0.5 * RHO * 0.1 * D * MATH_PI * pow(RADIUS, 2)) // Coefficient de traînée aérodynamique
