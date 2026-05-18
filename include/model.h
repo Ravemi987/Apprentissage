@@ -94,4 +94,6 @@ Config* DQNModelGetConfig(DQNModel *m);
 
 void DQNModelSetPath(DQNModel *m, char *path);
 
+int predict(DQNModel *m, double *state);
+
 #endif

@@ -51,10 +51,10 @@ int main() {
     // Initialisation des hyperparamètres de l'IA (DQN)
     int update_freq = 1000;
     int batch_size = 64;
-    double learning_rate = 1e-4; // Reprise à 1e-4 suite aux sécurités RSSI anti-NaN
+    double learning_rate = 1e-5; // Reprise à 1e-4 suite aux sécurités RSSI anti-NaN
     double decay = 0.0;
     
-    char *model_path = "files/drone_wifi_brain.bin";
+    char *model_path = "files/drone_wifi_brain.txt";
 
     printf("==================================================\n");
     printf("Création de l'agent DQN pour la Couverture Réseau...\n");

@@ -40,7 +40,7 @@ void envStep(Env *env, double *next_state, double *reward, int *is_terminal, int
 
 double getReward(Env *env);
 
-void resetEnv(Env *env);
+void resetEnv(Env *env, int current_epoch);
 
 Env *initEnv(World *w, int max_steps);
 

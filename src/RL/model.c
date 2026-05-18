@@ -22,7 +22,7 @@
 static NeuralNetwork *initNetwork(int batchSize) {
     int layerSizes[] = {NB_STATES, 256, 256, NB_ACTION};
     int numLayers = sizeof(layerSizes) / sizeof(layerSizes[0]);
-    return networkCreate(layerSizes, numLayers, "mean_squared_error", "relu", "linear", batchSize);
+    return networkCreate(layerSizes, numLayers, "mean_squared_error", "silu", "linear", batchSize);
 }
 
 
@@ -107,7 +107,7 @@ int predict(DQNModel *m, double *state) {
     if (r < m->config.epsilon) {
         action =  rand() % NB_ACTION;
     } else {
-        double *q_values = nnForwardPropagation(m->q_network, state, m->batchSize);
+        double *q_values = nnForwardPropagation(m->q_network, state, 1);
         action = arrayMaxIndex(q_values, NB_ACTION);
     }
 
@@ -218,7 +218,7 @@ void DeepQLearning(DQNModel *m) {
 
     // On fait un certain nombre d'epochs (entraînement complet) pour valider la généralisation du réseau
     for (int epoch = 0; epoch < m->config.epochs; ++epoch) {
-        resetEnv(env);  // Au début de chaque epochs, il faut repartir de l'état initial (comme le Q-Learning classique)
+        resetEnv(env, epoch);  // Au début de chaque epochs, il faut repartir de l'état initial (comme le Q-Learning classique)
         double total_epoch_reward = 0.0;
 
         for (m->step_count = 0; m->step_count < env->max_steps; ++(m->step_count)) {

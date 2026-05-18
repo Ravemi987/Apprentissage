@@ -272,13 +272,27 @@ void layerCopyWeights(Layer *dest, Layer *src) {
 
 void layerSave(Layer *l, FILE *file) {
     int nbWeights = l->featuresNumber * l->neuronsNumber;
-    fwrite(l->weights, sizeof(double), nbWeights, file);
-    fwrite(l->biases, sizeof(double), l->neuronsNumber, file);
+    
+    for (int i = 0; i < nbWeights; i++) {
+        fprintf(file, "%.8f ", l->weights[i]);
+    }
+    fprintf(file, "\n");
+
+    for (int i = 0; i < l->neuronsNumber; i++) {
+        fprintf(file, "%.8f ", l->biases[i]);
+    }
+    fprintf(file, "\n");
 }
 
 
 void layerLoad(Layer *l, FILE *file) {
     int nbWeights = l->featuresNumber * l->neuronsNumber;
-    if (fread(l->weights, sizeof(double), nbWeights, file) != 0) {};
-    if (fread(l->biases, sizeof(double), l->neuronsNumber, file) != 0) {};
+    
+    for (int i = 0; i < nbWeights; i++) {
+        if (fscanf(file, "%lf", &l->weights[i]) != 1) {}
+    }
+    
+    for (int i = 0; i < l->neuronsNumber; i++) {
+        if (fscanf(file, "%lf", &l->biases[i]) != 1) {}
+    }
 }

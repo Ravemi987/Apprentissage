@@ -305,8 +305,9 @@ void networkCopyWeights(NeuralNetwork *dest, NeuralNetwork *src) {
     }
 }
 
+
 void networkSave(NeuralNetwork *nn, const char *filepath) {
-    FILE *file = fopen(filepath, "wb");
+    FILE *file = fopen(filepath, "w");
     if (!file) {
         printf("Erreur: Impossible d'ouvrir %s pour la sauvegarde.\n", filepath);
         return;
@@ -317,11 +318,12 @@ void networkSave(NeuralNetwork *nn, const char *filepath) {
     }
 
     fclose(file);
-    printf("Modele sauvegarde avec succès dans : %s\n", filepath);
+    printf("Modele sauvegarde en format TEXTE avec succes dans : %s\n", filepath);
 }
 
+
 void networkLoad(NeuralNetwork *nn, const char *filepath) {
-    FILE *file = fopen(filepath, "rb");
+    FILE *file = fopen(filepath, "r");
     if (!file) {
         printf("Erreur: Impossible d'ouvrir %s pour le chargement.\n", filepath);
         return;
@@ -332,5 +334,5 @@ void networkLoad(NeuralNetwork *nn, const char *filepath) {
     }
 
     fclose(file);
-    printf("Modele charge avec succès depuis : %s\n", filepath);
+    printf("Modele charge avec succes depuis : %s\n", filepath);
 }
