@@ -13,6 +13,8 @@
 #include "activation.h"
 #include "loss.h"
 
+#define CLIP_LIMIT 1.0
+
 typedef struct s_dl_layer Layer;
 
 // Alloue de la mémoire !

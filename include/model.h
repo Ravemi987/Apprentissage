@@ -10,6 +10,7 @@
 #include "env.h"
 
 #define MEMORY_SIZE 100000
+#define TARGET_CLIPING 100.0
 
 
 /*

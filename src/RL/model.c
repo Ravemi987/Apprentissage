@@ -197,6 +197,12 @@ void updateNetwork(DQNModel *m) {
             target_value += m->config.gamma * max_q;
         }
 
+        // Puisque les récompenses sont bornées entre -1 et 1, la valeur cumulée théorique max ne peut jamais dépasser 1 / (1 - gamma).
+        // Avec un gamma à 0.99, la limite absolue s'établit à 100.
+        if (isnan(target_value) || isinf(target_value)) target_value = 0;
+        if (target_value > TARGET_CLIPING)  target_value = TARGET_CLIPING;
+        if (target_value < -TARGET_CLIPING) target_value = -TARGET_CLIPING;
+
         // A ce stade, on injecte dans expected_outputs pour remplacer la valeur de l'action choisie par la meilleure (dans ce batch)
         m->batch_expected_outputs[i * NB_ACTION + batch[i].action] = target_value;
     }

@@ -4,6 +4,8 @@
 
 /* Fonction utilitaire pour limiter une valeur entre un min et un max (Hard Clip) */
 double clamp(double val, double min_val, double max_val) {
+    if (isnan(val) || isinf(val)) return 0.0;
+    
     if (val < min_val) return min_val;
     if (val > max_val) return max_val;
     return val;
@@ -87,9 +89,6 @@ double getReward(Env *env) {
     
     // Calcul du Gradient
     double delta_signal = current_signal_norm - env->previous_rssi_norm;
-    
-    // Mise à jour de la mémoire pour l'étape suivante
-    env->previous_rssi_norm = current_signal_norm;
 
     if (w->numUsers > 0) {
         // Si le signal est parfait (1.0), il gagne +0.1, ce qui annule la pénalité de temps (-0.05) et encourage le hovering.
@@ -109,10 +108,9 @@ double getReward(Env *env) {
     double speed_squared = pow(d->x_dot, 2) + pow(d->y_dot, 2) + pow(d->z_dot, 2);
     reward -= speed_squared * 0.001;
 
-    if (isDroneCrashed(w)) { reward -= 2.0; }
+    if (isDroneCrashed(w)) { reward -= 100.0; }
 
-    // CLIPPING (Sécurité pour l'équation de Bellman)
-    return clamp(reward, -1.0, 1.0);
+    return reward;
 }
 
 
@@ -236,19 +234,18 @@ void envStep(Env *env, double *next_state, double *reward, int *is_terminal, int
     // On laisse le drone exécuter l'action choisie pendant FRAME_SKIP itérations physiques
     for (int i = 0; i < FRAME_SKIP; i++) {
         physicsStep(w, DT);
-        // On vérifie si le drone s'est crashé pendant le saut
         crashed = isDroneCrashed(w);
-        // On cumule la récompense à chaque mini-étape
         accumulated_reward += getReward(env);
-        // Si on se crashe au milieu du Frame Skip, on arrête la boucle
         if (crashed) break;
     }
+
+    int dummy;
+    env->previous_rssi_norm = getAverageSignalNorm(w, w->drone, &dummy);
 
     getStateVector(env, next_state);
 
     // On fait la moyenne de la récompense accumulée sur les frames skippées pour garder des valeurs stables pour le réseau de neurones
     *reward = accumulated_reward / FRAME_SKIP; 
-
     *is_terminal = crashed;
 }
 

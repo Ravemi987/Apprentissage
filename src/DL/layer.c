@@ -230,14 +230,24 @@ void layerUpdateWeights(Layer *l, double learningRate, int datasetSize) {
         for (int feature = 0; feature < l->featuresNumber; feature++) {
             int index = neuron * l->featuresNumber + feature;
 
-            l->weights[index] -= learningRate * (l->weightsGradients[index] / datasetSize);
+        double grad = l->weightsGradients[index] / datasetSize;
+            
+            if (grad > CLIP_LIMIT) grad = CLIP_LIMIT;
+            if (grad < -CLIP_LIMIT) grad = -CLIP_LIMIT;
+
+            l->weights[index] -= learningRate * grad;
             l->weightsGradients[index] = 0.0;
         }
     }
     // On separe les boucles
     #pragma omp parallel for    
     for (int neuron = 0; neuron < l->neuronsNumber; neuron++) {
-        l->biases[neuron] -= learningRate * (l->biasesGradients[neuron] / datasetSize);
+    double bias_grad = l->biasesGradients[neuron] / datasetSize;
+        
+        if (bias_grad > CLIP_LIMIT) bias_grad = CLIP_LIMIT;
+        if (bias_grad < -CLIP_LIMIT) bias_grad = -CLIP_LIMIT;
+
+        l->biases[neuron] -= learningRate * bias_grad;
         l->biasesGradients[neuron] = 0.0;
     }
 }
