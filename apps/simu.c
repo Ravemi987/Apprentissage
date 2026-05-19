@@ -27,8 +27,35 @@ int main() {
 
     // Initialisation des structutres
     Drone d = createDrone(100.0, 50.0, 10.0);
-    User users[2] = { {40, 40, 0}, {160, 60, 0} }; 
-    World w = { .drone = &d, .users = users, .numUsers = 2, .width = 200, .height = 100, .depth = 100 };
+
+    // 2. Définition de la population (Utilisateurs fixes pour le test)
+    User users[] = { 
+        {170.0, 80.0, 0.0}, 
+        {165.0, 75.0, 0.0},
+        {175.0, 85.0, 0.0},
+        {180.0, 70.0, 0.0}
+    }; 
+    int num_users = sizeof(users) / sizeof(users[0]);
+
+    // 3. Définition des obstacles 3D
+    Obstacle3D obstacles[] = {
+        {30.0, 20.0, 0.0, 3.0, 15.0},   
+        {30.0, 80.0, 0.0, 4.0, 20.0},  
+        {100.0, 10.0, 0.0, 2.5, 12.0}
+    };
+    int num_obstacles = sizeof(obstacles) / sizeof(obstacles[0]);
+
+    // Assemblage du monde 3D
+    World w = { 
+        .drone = &d, 
+        .users = users, 
+        .numUsers = num_users, 
+        .obstacles = obstacles,
+        .numObstacles = num_obstacles,
+        .width = 200.0, 
+        .height = 100.0, 
+        .depth = 100.0
+    };
 
     setNonBlockingMode(1);
     printf("Contrôles : [z/s] Alt | [q/d] Roll | [a/e] Pitch | [r/f] Yaw | [x] Quitter\n");

@@ -9,7 +9,7 @@
 #include "network.h"
 #include "env.h"
 
-#define MEMORY_SIZE 100000
+#define MEMORY_SIZE 50000
 #define TARGET_CLIPING 100.0
 
 
@@ -20,7 +20,7 @@
  * Ces deux états sont quasi identiques. Si on entraîne le réseau dessus, il va overfitter sur cette trajectoire et 
  * oublier complètement comment voler. On doit donc sauvegarder les étapes:
  * Etat S, Action A, Récompense R et Etat suivant S' dans un buffer. Au lieu de prendre la dernière action effectuée,
- * on tire aléatooirement un mini-batch (ex: 64) dans ce buffer pour que le réseau apprenne sur un mélange de situations passées
+ * on tire aléatoirement un mini-batch (ex: 64) dans ce buffer pour que le réseau apprenne sur un mélange de situations passées
  * et présentes pour casser la corrélation.
  * 
 */

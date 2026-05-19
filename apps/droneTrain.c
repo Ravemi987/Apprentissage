@@ -49,9 +49,9 @@ int main() {
     };
 
     // Initialisation des hyperparamètres de l'IA (DQN)
-    int update_freq = 1000;
-    int batch_size = 64;
-    double learning_rate = 1e-5; // Reprise à 1e-4 suite aux sécurités RSSI anti-NaN
+    int update_freq = 2000;
+    int batch_size = 128;
+    double learning_rate = 5e-4;
     double decay = 0.0;
     
     char *model_path = "files/drone_wifi_brain.txt";
@@ -66,9 +66,9 @@ int main() {
 
     // Ajustement de la configuration pour la version finale
     Config *cfg = DQNModelGetConfig(ai);
-    cfg->epochs = 2000;
+    cfg->epochs = 4000;
     cfg->max_steps = 5000;
-    cfg->epsilon_decay = 0.002;
+    cfg->epsilon_decay = 0.0005;
     cfg->epsilon_min = 0.05;
 
     if (fileExists(model_path)) {

@@ -70,7 +70,15 @@ void DQNModelDelete(DQNModel **m) {
     networkDestroy(&(*m)->target_network);
     free((*m)->memory->buffer);
     free((*m)->memory);
-    free((*m)->env);
+
+    if ((*m)->env) {
+        free((*m)->env->spawn_users_x);
+        free((*m)->env->spawn_users_y);
+        free((*m)->env->spawn_obs_x);
+        free((*m)->env->spawn_obs_y);
+        free((*m)->env);
+    }
+
     free((*m)->batch_inputs);
     free((*m)->batch_next_inputs);
     free((*m)->batch_expected_outputs);

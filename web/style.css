@@ -53,4 +53,12 @@ canvas {
 
 .legend-items { display: flex; justify-content: space-around; }
 .legend-item { display: flex; align-items: center; font-size: 14px; }
-.color-box { width: 15px; height: 15px; border-radius: 3px; margin-right: 10px; display: inline-block; }
+
+.color-box { 
+    width: 15px; 
+    height: 15px; 
+    border-radius: 3px; 
+    margin-right: 10px; 
+    display: inline-block; 
+    box-sizing: border-box; /* Ajout important pour les bordures */
+}

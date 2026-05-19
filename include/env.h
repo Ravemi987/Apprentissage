@@ -33,6 +33,15 @@ typedef struct s_rl_env {
 
     int max_steps;                      // Nombre d'étapes maximum d'étapes que le drone peut faire (batterie max)
     double previous_rssi_norm;          // Utile pour le calcul des rewards
+
+    double *spawn_users_x;
+    double *spawn_users_y;
+    double *spawn_obs_x;
+    double *spawn_obs_y;
+    
+    double spawn_drone_x;
+    double spawn_drone_y;
+    double spawn_drone_z;
 } Env;
 
 

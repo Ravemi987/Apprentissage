@@ -25,7 +25,7 @@ static double getObstaclePenalty(World *w, Drone *d) {
             
             if (dist_h < safety_zone) {
                 // Pénalité proportionnelle à l'intrusion (max -0.5 par obstacle)
-                penalty -= clamp((safety_zone - dist_h) / safety_zone, 0.0, 1.0) * 0.5; 
+                penalty -= clamp((safety_zone - dist_h) / safety_zone, 0.0, 1.0) * 0.1; 
             }
         }
     }
@@ -45,7 +45,7 @@ static double getHumanProximityPenalty(World *w, Drone *d) {
             if (dist_h < SAFETY_RADIUS) {
                 // Punition forte si intrusion dans le rayon humain (max -0.8 par humain)
                 double penetration = (SAFETY_RADIUS - dist_h) / SAFETY_RADIUS;
-                penalty -= clamp(penetration, 0.0, 1.0) * 0.8;
+                penalty -= clamp(penetration, 0.0, 1.0) * 0.1;
             }
         }
     }
@@ -88,16 +88,16 @@ double getReward(Env *env) {
     double current_signal_norm = getAverageSignalNorm(w, d, &connected);
     
     // Calcul du Gradient
-    double delta_signal = current_signal_norm - env->previous_rssi_norm;
+    // double delta_signal = current_signal_norm - env->previous_rssi_norm;
 
     if (w->numUsers > 0) {
-        // Si le signal est parfait (1.0), il gagne +0.1, ce qui annule la pénalité de temps (-0.05) et encourage le hovering.
-        reward += current_signal_norm * 0.1;
+        // Si le signal est parfait (1.0), il gagne +1.0, ce qui annule la pénalité de temps (-0.05) et encourage le hovering.
+        reward += current_signal_norm * 1.0;
         
         if (connected == w->numUsers) reward += 0.05; // Bonus de réussite
         
         // Récompense de Gradient pour déplacement dans la bonne direction
-        reward += delta_signal * 1.5; 
+        // reward += 0.2; 
     }
 
     // Application des pénalités environnementales
@@ -107,8 +107,6 @@ double getReward(Env *env) {
     // Pénalités de vol (Excès de vitesse et Crash)
     double speed_squared = pow(d->x_dot, 2) + pow(d->y_dot, 2) + pow(d->z_dot, 2);
     reward -= speed_squared * 0.001;
-
-    if (isDroneCrashed(w)) { reward -= 100.0; }
 
     return reward;
 }
@@ -241,82 +239,17 @@ void envStep(Env *env, double *next_state, double *reward, int *is_terminal, int
 
     int dummy;
     env->previous_rssi_norm = getAverageSignalNorm(w, w->drone, &dummy);
-
     getStateVector(env, next_state);
 
-    // On fait la moyenne de la récompense accumulée sur les frames skippées pour garder des valeurs stables pour le réseau de neurones
-    *reward = accumulated_reward / FRAME_SKIP; 
+    double final_reward = accumulated_reward / FRAME_SKIP; 
+
+    if (crashed) { final_reward -= 100.0; }
+    *reward = final_reward; 
     *is_terminal = crashed;
 }
 
 
-/* Fonction permettant de réinitialiser l'environnement à sont état d'origine après chaque epoch */
-/* Dans env.c -> Remplacement de la fonction resetEnv */
-void resetEnv(Env *env, int current_epoch) {
-    World *w = env->physical_world;
-
-    //  Réinitialisation classique du drone
-    *(w->drone) = createDrone(100.0, 50.0, 20.0);
-    env->current_reward = 0.0;
-    env->is_terminal = 0;
-
-    // Positions de référence de base (issues de ton droneTrain.c pour le mode fixe/bruit)
-    double base_users_x[] = {40.0, 160.0, 100.0, 80.0};
-    double base_users_y[] = {40.0, 60.0, 30.0, 70.0};
-    
-    double base_obs_x[] = {60.0, 140.0, 100.0};
-    double base_obs_y[] = {50.0, 45.0, 80.0};
-
-    // Logique du Curriculum Learning (Randomisation par paliers)
-    
-    if (current_epoch < 500) {
-        // Environnement fixe
-        for (int i = 0; i < w->numUsers; i++) {
-            w->users[i].x = base_users_x[i % 4];
-            w->users[i].y = base_users_y[i % 4];
-        }
-        for (int i = 0; i < w->numObstacles; i++) {
-            w->obstacles[i].x = base_obs_x[i % 3];
-            w->obstacles[i].y = base_obs_y[i % 3];
-        }
-        
-    } else if (current_epoch < 1000) {
-        // Randomisation aléatoire légère
-        double max_noise = 6.0;
-        
-        for (int i = 0; i < w->numUsers; i++) {
-            double noise_x = (((double)rand() / (double)RAND_MAX) * 2.0 - 1.0) * max_noise;
-            double noise_y = (((double)rand() / (double)RAND_MAX) * 2.0 - 1.0) * max_noise;
-            w->users[i].x = clamp(base_users_x[i % 4] + noise_x, 10.0, w->width - 10.0);
-            w->users[i].y = clamp(base_users_y[i % 4] + noise_y, 10.0, w->height - 10.0);
-        }
-        for (int i = 0; i < w->numObstacles; i++) {
-            double noise_x = (((double)rand() / (double)RAND_MAX) * 2.0 - 1.0) * max_noise;
-            double noise_y = (((double)rand() / (double)RAND_MAX) * 2.0 - 1.0) * max_noise;
-            w->obstacles[i].x = clamp(base_obs_x[i % 3] + noise_x, 20.0, w->width - 20.0);
-            w->obstacles[i].y = clamp(base_obs_y[i % 3] + noise_y, 20.0, w->height - 20.0);
-        }
-        
-    } else {
-        // Randomisation aléatoire totale
-        for (int i = 0; i < w->numUsers; i++) {
-            w->users[i].x = 10.0 + ((double)rand() / (double)RAND_MAX) * (w->width - 20.0);
-            w->users[i].y = 10.0 + ((double)rand() / (double)RAND_MAX) * (w->height - 20.0);
-        }
-        for (int i = 0; i < w->numObstacles; i++) {
-            // On laisse une marge de sécurité pour que l'arbre ne pop pas sur les bords
-            w->obstacles[i].x = 20.0 + ((double)rand() / (double)RAND_MAX) * (w->width - 40.0);
-            w->obstacles[i].y = 20.0 + ((double)rand() / (double)RAND_MAX) * (w->height - 40.0);
-        }
-    }
-
-    int dummy_conn;
-    env->previous_rssi_norm = getAverageSignalNorm(w, w->drone, &dummy_conn);
-    getStateVector(env, env->current_state);
-}
-
-
-/* Initialise l'environnement */
+/* Initialise l'environnement en capturant la configuration dynamique du monde */
 Env *initEnv(World *w, int max_steps) {
     Env *env = malloc(sizeof(Env));
 
@@ -325,10 +258,90 @@ Env *initEnv(World *w, int max_steps) {
     env->is_terminal = 0;
     env->max_steps = max_steps;
 
+    // Sauvegarde de la position de départ du drone
+    env->spawn_drone_x = w->drone->x;
+    env->spawn_drone_y = w->drone->y;
+    env->spawn_drone_z = w->drone->z;
+
+    // Allocation des tableaux de sauvegarde pour les utilisateurs
+    env->spawn_users_x = malloc(w->numUsers * sizeof(double));
+    env->spawn_users_y = malloc(w->numUsers * sizeof(double));
+    for (int i = 0; i < w->numUsers; i++) {
+        env->spawn_users_x[i] = w->users[i].x;
+        env->spawn_users_y[i] = w->users[i].y;
+    }
+
+    // Allocation des tableaux de sauvegarde pour les obstacles
+    env->spawn_obs_x = malloc(w->numObstacles * sizeof(double));
+    env->spawn_obs_y = malloc(w->numObstacles * sizeof(double));
+    for (int i = 0; i < w->numObstacles; i++) {
+        env->spawn_obs_x[i] = w->obstacles[i].x;
+        env->spawn_obs_y[i] = w->obstacles[i].y;
+    }
+
     int dummy_conn;
     env->previous_rssi_norm = getAverageSignalNorm(w, w->drone, &dummy_conn);
-
     getStateVector(env, env->current_state);
 
     return env;
+}
+
+/* Réinitialise l'environnement en se basant UNIQUEMENT sur les paramètres capturés */
+void resetEnv(Env *env, int current_epoch) {
+    World *w = env->physical_world;
+
+    // Réinitialisation du drone à sa vraie position d'origine
+    *(w->drone) = createDrone(env->spawn_drone_x, env->spawn_drone_y, env->spawn_drone_z);
+    env->current_reward = 0.0;
+    env->is_terminal = 0;
+
+    // Logique du Curriculum Learning basée sur les vrais paramètres initiaux
+    if (current_epoch < 2000) {
+        // Mode Fixe : On applique strictement les coordonnées d'origine
+        for (int i = 0; i < w->numUsers; i++) {
+            w->users[i].x = env->spawn_users_x[i];
+            w->users[i].y = env->spawn_users_y[i];
+        }
+        for (int i = 0; i < w->numObstacles; i++) {
+            w->obstacles[i].x = env->spawn_obs_x[i];
+            w->obstacles[i].y = env->spawn_obs_y[i];
+        }
+        
+    } else if (current_epoch < 3000) {
+        // Mode Bruit : On applique une variation légère autour des coordonnées d'origine
+        double max_noise = 6.0;
+        for (int i = 0; i < w->numUsers; i++) {
+            double noise_x = (((double)rand() / (double)RAND_MAX) * 2.0 - 1.0) * max_noise;
+            double noise_y = (((double)rand() / (double)RAND_MAX) * 2.0 - 1.0) * max_noise;
+            w->users[i].x = clamp(env->spawn_users_x[i] + noise_x, 10.0, w->width - 10.0);
+            w->users[i].y = clamp(env->spawn_users_y[i] + noise_y, 10.0, w->height - 10.0);
+        }
+        for (int i = 0; i < w->numObstacles; i++) {
+            double noise_x = (((double)rand() / (double)RAND_MAX) * 2.0 - 1.0) * max_noise;
+            double noise_y = (((double)rand() / (double)RAND_MAX) * 2.0 - 1.0) * max_noise;
+            w->obstacles[i].x = clamp(env->spawn_obs_x[i] + noise_x, 20.0, w->width - 20.0);
+            w->obstacles[i].y = clamp(env->spawn_obs_y[i] + noise_y, 20.0, w->height - 20.0);
+        }
+        
+    } else {
+        // Mode Aléatoire Total (Sauf pour l'origine du drone)
+        for (int i = 0; i < w->numUsers; i++) {
+            w->users[i].x = 10.0 + ((double)rand() / (double)RAND_MAX) * (w->width - 20.0);
+            w->users[i].y = 10.0 + ((double)rand() / (double)RAND_MAX) * (w->height - 20.0);
+        }
+        for (int i = 0; i < w->numObstacles; i++) {
+            double obs_x, obs_y;
+            do {
+                obs_x = 20.0 + ((double)rand() / (double)RAND_MAX) * (w->width - 40.0);
+                obs_y = 20.0 + ((double)rand() / (double)RAND_MAX) * (w->height - 40.0);
+            } while (sqrt(pow(obs_x - env->spawn_drone_x, 2) + pow(obs_y - env->spawn_drone_y, 2)) < 25.0);
+            
+            w->obstacles[i].x = obs_x;
+            w->obstacles[i].y = obs_y;
+        }
+    }
+
+    int dummy_conn;
+    env->previous_rssi_norm = getAverageSignalNorm(w, w->drone, &dummy_conn);
+    getStateVector(env, env->current_state);
 }

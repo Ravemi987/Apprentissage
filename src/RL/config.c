@@ -7,7 +7,7 @@ Config defaultConfig(void) {
         .gamma = 0.99,
         .epsilon = 1.0,
         .epsilon_min = 0.05,
-        .epsilon_decay = 0.002,
+        .epsilon_decay = 0.0008,
         .epochs = 2000,
         .max_steps = 5000
     };

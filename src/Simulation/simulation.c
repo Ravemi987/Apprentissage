@@ -385,13 +385,23 @@ void exportStateToJSON(World *w, const char *filepath) {
     fprintf(f, "    \"vx\": %.2f, \"vy\": %.2f, \"vz\": %.2f\n", w->drone->x_dot, w->drone->y_dot, w->drone->z_dot);
     fprintf(f, "  },\n");
     
+    // Utilisateurs
     fprintf(f, "  \"users\": [\n");
     for (int i = 0; i < w->numUsers; i++) {
         fprintf(f, "    {\"x\": %.2f, \"y\": %.2f, \"z\": %.2f}", w->users[i].x, w->users[i].y, w->users[i].z);
         if (i < w->numUsers - 1) fprintf(f, ",\n");
     }
-    fprintf(f, "  ]\n");
-    fprintf(f, "}\n");
+    fprintf(f, "  ],\n"); // Ajout de la virgule ici !
 
+    // Obstacles
+    fprintf(f, "  \"obstacles\": [\n");
+    for (int i = 0; i < w->numObstacles; i++) {
+        fprintf(f, "    {\"x\": %.2f, \"y\": %.2f, \"z\": %.2f, \"radius\": %.2f, \"height\": %.2f}", 
+                w->obstacles[i].x, w->obstacles[i].y, w->obstacles[i].z, w->obstacles[i].radius, w->obstacles[i].height);
+        if (i < w->numObstacles - 1) fprintf(f, ",\n");
+    }
+    fprintf(f, "  ]\n");
+
+    fprintf(f, "}\n");
     fclose(f);
 }

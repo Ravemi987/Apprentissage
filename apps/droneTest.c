@@ -7,28 +7,23 @@
 #include "model.h"
 
 int main() {
-    // 1. Initialisation de la physique du drone
-    // (Mêmes conditions de départ que pour l'entraînement)
     Drone d = createDrone(100.0, 50.0, 10.0);
 
-    // 2. Définition de la population (Utilisateurs fixes pour le test)
     User users[] = { 
-        {40.0, 40.0, 0.0}, 
-        {110.0, 60.0, 0.0},
-        {100.0, 30.0, 0.0},
-        {80.0, 70.0, 0.0}
+        {170.0, 80.0, 0.0}, 
+        {165.0, 75.0, 0.0},
+        {175.0, 85.0, 0.0},
+        {180.0, 70.0, 0.0}
     }; 
     int num_users = sizeof(users) / sizeof(users[0]);
 
-    // 3. Définition des obstacles 3D
     Obstacle3D obstacles[] = {
-        {60.0, 50.0, 0.0, 3.0, 15.0},
-        {140.0, 45.0, 0.0, 4.0, 20.0},
-        {100.0, 80.0, 0.0, 2.5, 12.0}
+        {30.0, 20.0, 0.0, 3.0, 15.0},   
+        {30.0, 80.0, 0.0, 4.0, 20.0},  
+        {100.0, 10.0, 0.0, 2.5, 12.0}
     };
     int num_obstacles = sizeof(obstacles) / sizeof(obstacles[0]);
 
-    // Assemblage du monde 3D
     World w = { 
         .drone = &d, 
         .users = users, 
@@ -77,7 +72,7 @@ int main() {
     // Si tu as gardé l'ancienne signature sans curriculum, remets juste resetEnv(env);
     resetEnv(env, 0); 
 
-    // 7. Boucle de vol visuelle
+    // Boucle de vol visuelle
     for (steps = 0; steps < env->max_steps; steps++) {
         
         // L'IA observe l'état et choisit la meilleure action absolue
@@ -98,8 +93,6 @@ int main() {
                steps + 1, env->max_steps, action, reward, w.drone->x, w.drone->y, w.drone->z);
         fflush(stdout);
 
-        // Ralentisseur pour caler l'export JSON sur le rythme de l'interface Web (facultatif)
-        // 50 millisecondes d'attente entre chaque décision macro
         usleep(50000); 
 
         if (is_terminal) {
