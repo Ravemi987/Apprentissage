@@ -108,6 +108,10 @@ Dans notre projet, il y a donc trois composantes:
     \item La partie interface graphique (GUI)
 \end{itemize}
 
+\begin{center}
+    \includegraphics[width=0.5\textwidth]{images/simu.png}
+\end{center}
+
 \textbf{Hiérachie des fichiers}
 \begin{itemize}
     \item A chaque fois que je parle de simulation physique, c'est dans \texttt{simulation.c} et \texttt{simulation.h} (les .h sont dans \texttt{include}). 
@@ -685,7 +689,21 @@ simulation.c pour les obstacles et .env.c pour gérer les collision.
 \subsection{Améliorer le modèle}
 
 \begin{itemize}
-    \item Faire varier les hyperparamètres, modifeir la fonction récompense et essayer de dénicher les comportements extrêmes qui peuvent être néfastes pour améliorer les résultats.
+    \item Faire varier les hyperparamètres, modifier la fonction récompense et essayer de dénicher les comportements extrêmes qui peuvent être néfastes pour améliorer les résultats. 
+    (En fait ça prend une ligne d'explication mais c'est le plus dur, car l'entraînement peut prendre 4 à 10h selon les paramètres et votre CPU)
+    \item Réfléchir pour améliorer les techniques existantes que j'ai présenté, qui peuvent être aussi importantes que les paramètres.
+    \item \textbf{Bonus} (si ça amuse particulièrement quelqu'un): implémenter soit de manière algorithmique (par exemple en mémorisant le chemin) soit avec l'IA en modifiant la fonction reward, 
+    un retour à la base avant panne d'autonomie (représentée par max\_steps).
+\end{itemize}
+
+\section{Lancer le programme}
+
+\begin{itemize}
+    \item Pour tester, ouvrir 2 terminales.
+    \item Aller dans le repo à la racine, et faire \texttt{make clean \&\& make}.
+    \item Dans le premier terminal, lancer le serveur web pour l'interface graphique: \texttt{cd app \&\& python3 -m http.server 8000}
+    \item Dans le deuxième terminal, lancer soit le test manuel: \texttt{./simu}, soit l'IA (\texttt{./droneTest})
+    \item Pour l'entraînement, on a besoin que d'un terminal, on lance \texttt{./droneTrain}
 \end{itemize}
 
 \end{document}
