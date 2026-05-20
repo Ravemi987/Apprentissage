@@ -24,8 +24,8 @@ static double getObstaclePenalty(World *w, Drone *d) {
             double safety_zone = obs.radius + SAFETY_RADIUS; 
             
             if (dist_h < safety_zone) {
-                // Pénalité proportionnelle à l'intrusion (max -0.5 par obstacle)
-                penalty -= clamp((safety_zone - dist_h) / safety_zone, 0.0, 1.0) * 0.1; 
+                double penetration = (safety_zone - dist_h) / SAFETY_RADIUS;
+                penalty -= clamp(penetration, 0.0, 1.0) * 1.0; 
             }
         }
     }
@@ -43,9 +43,8 @@ static double getHumanProximityPenalty(World *w, Drone *d) {
             double dist_h = sqrt(pow(d->x - u.x, 2) + pow(d->y - u.y, 2));
             
             if (dist_h < SAFETY_RADIUS) {
-                // Punition forte si intrusion dans le rayon humain (max -0.8 par humain)
                 double penetration = (SAFETY_RADIUS - dist_h) / SAFETY_RADIUS;
-                penalty -= clamp(penetration, 0.0, 1.0) * 0.1;
+                penalty -= clamp(penetration, 0.0, 1.0) * 1.0;
             }
         }
     }
@@ -85,28 +84,28 @@ double getReward(Env *env) {
 
     // Gestion du Signal (Absolu + Delta)
     int connected = 0;
+
+    // Attention, garder garder la valeur moyenne et surtout pasfaire une différence !
     double current_signal_norm = getAverageSignalNorm(w, d, &connected);
-    
-    // Calcul du Gradient
-    // double delta_signal = current_signal_norm - env->previous_rssi_norm;
 
     if (w->numUsers > 0) {
         // Si le signal est parfait (1.0), il gagne +1.0, ce qui annule la pénalité de temps (-0.05) et encourage le hovering.
         reward += current_signal_norm * 1.0;
         
         if (connected == w->numUsers) reward += 0.05; // Bonus de réussite
-        
-        // Récompense de Gradient pour déplacement dans la bonne direction
-        // reward += 0.2; 
     }
 
     // Application des pénalités environnementales
     reward += getObstaclePenalty(w, d);
     reward += getHumanProximityPenalty(w, d);
 
-    // Pénalités de vol (Excès de vitesse et Crash)
+    // Pénalité linéaire globale 
     double speed_squared = pow(d->x_dot, 2) + pow(d->y_dot, 2) + pow(d->z_dot, 2);
-    reward -= speed_squared * 0.001;
+    reward -= speed_squared * 0.003; 
+
+    // Pénalité angulaire modérée (Pour diminuer le Yaw, très sensible avec un impact invisible, sans interdire de tourner)
+    double angular_speed = pow(d->p, 2) + pow(d->q, 2) + pow(d->r, 2);
+    reward -= angular_speed * 0.001;
 
     return reward;
 }
@@ -237,8 +236,6 @@ void envStep(Env *env, double *next_state, double *reward, int *is_terminal, int
         if (crashed) break;
     }
 
-    int dummy;
-    env->previous_rssi_norm = getAverageSignalNorm(w, w->drone, &dummy);
     getStateVector(env, next_state);
 
     double final_reward = accumulated_reward / FRAME_SKIP; 
@@ -279,12 +276,11 @@ Env *initEnv(World *w, int max_steps) {
         env->spawn_obs_y[i] = w->obstacles[i].y;
     }
 
-    int dummy_conn;
-    env->previous_rssi_norm = getAverageSignalNorm(w, w->drone, &dummy_conn);
     getStateVector(env, env->current_state);
 
     return env;
 }
+
 
 /* Réinitialise l'environnement en se basant UNIQUEMENT sur les paramètres capturés */
 void resetEnv(Env *env, int current_epoch) {
@@ -295,9 +291,8 @@ void resetEnv(Env *env, int current_epoch) {
     env->current_reward = 0.0;
     env->is_terminal = 0;
 
-    // Logique du Curriculum Learning basée sur les vrais paramètres initiaux
-    if (current_epoch < 2000) {
-        // Mode Fixe : On applique strictement les coordonnées d'origine
+    if (current_epoch < 200) {
+        // Mode Fixe
         for (int i = 0; i < w->numUsers; i++) {
             w->users[i].x = env->spawn_users_x[i];
             w->users[i].y = env->spawn_users_y[i];
@@ -307,8 +302,8 @@ void resetEnv(Env *env, int current_epoch) {
             w->obstacles[i].y = env->spawn_obs_y[i];
         }
         
-    } else if (current_epoch < 3000) {
-        // Mode Bruit : On applique une variation légère autour des coordonnées d'origine
+    } else if (current_epoch < 500) {
+        // Mode Bruit
         double max_noise = 6.0;
         for (int i = 0; i < w->numUsers; i++) {
             double noise_x = (((double)rand() / (double)RAND_MAX) * 2.0 - 1.0) * max_noise;
@@ -324,24 +319,46 @@ void resetEnv(Env *env, int current_epoch) {
         }
         
     } else {
-        // Mode Aléatoire Total (Sauf pour l'origine du drone)
+        // Mode Aléatoire Total 
         for (int i = 0; i < w->numUsers; i++) {
             w->users[i].x = 10.0 + ((double)rand() / (double)RAND_MAX) * (w->width - 20.0);
             w->users[i].y = 10.0 + ((double)rand() / (double)RAND_MAX) * (w->height - 20.0);
         }
+        
         for (int i = 0; i < w->numObstacles; i++) {
             double obs_x, obs_y;
+            int valid_placement;
+            
             do {
+                valid_placement = 1; // On part du principe que c'est bon
+                
                 obs_x = 20.0 + ((double)rand() / (double)RAND_MAX) * (w->width - 40.0);
                 obs_y = 20.0 + ((double)rand() / (double)RAND_MAX) * (w->height - 40.0);
-            } while (sqrt(pow(obs_x - env->spawn_drone_x, 2) + pow(obs_y - env->spawn_drone_y, 2)) < 25.0);
+                
+                // SÉCURITÉ DRONE : L'obstacle doit être loin du spawn du drone
+                double dist_to_drone = sqrt(pow(obs_x - env->spawn_drone_x, 2) + pow(obs_y - env->spawn_drone_y, 2));
+                if (dist_to_drone < 25.0) {
+                    valid_placement = 0;
+                }
+                
+                //CORRECTION MAJEURE (SÉCURITÉ HUMAINE) : L'obstacle ne doit pas écraser un utilisateur
+                // On laisse une marge confortable (Rayon de l'arbre + SAFETY_RADIUS + marge de manoeuvre)
+                for (int u = 0; u < w->numUsers; u++) {
+                    double dist_to_user = sqrt(pow(obs_x - w->users[u].x, 2) + pow(obs_y - w->users[u].y, 2));
+                    double min_clearance = w->obstacles[i].radius + SAFETY_RADIUS + 5.0; 
+                    
+                    if (dist_to_user < min_clearance) {
+                        valid_placement = 0; // Invalide, on rejette cette position
+                        break; 
+                    }
+                }
+                
+            } while (!valid_placement); // On boucle tant qu'on n'a pas un emplacement 100% sain
             
             w->obstacles[i].x = obs_x;
             w->obstacles[i].y = obs_y;
         }
     }
 
-    int dummy_conn;
-    env->previous_rssi_norm = getAverageSignalNorm(w, w->drone, &dummy_conn);
     getStateVector(env, env->current_state);
 }

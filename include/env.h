@@ -9,7 +9,7 @@
 #define GRID_SIZE 4
 #define MAX_CLOSEST_OBSTACLES 3
 #define NB_STATES (GRID_SIZE * GRID_SIZE + MAX_CLOSEST_OBSTACLES * 3 + 12)
-#define FRAME_SKIP 10   // Frame Skipping pour laisser à la physique le temps de calculer les mouvements de l'IA
+#define FRAME_SKIP 4   // Frame Skipping pour laisser à la physique le temps de calculer les mouvements de l'IA
 
 
 /*
@@ -32,7 +32,6 @@ typedef struct s_rl_env {
     double current_reward;              // Récompense courante (dernière reçue)
 
     int max_steps;                      // Nombre d'étapes maximum d'étapes que le drone peut faire (batterie max)
-    double previous_rssi_norm;          // Utile pour le calcul des rewards
 
     double *spawn_users_x;
     double *spawn_users_y;

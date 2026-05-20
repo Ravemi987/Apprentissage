@@ -25,14 +25,14 @@
 #define MATH_PI 3.14159265358979323846 // PI
 #define ANGLE_LIMIT 0.25 // Limite pour éviter les singularités de gimbal lock
 #define MAX_ROT 5.0 // Vitesse de rotation maximale en rad/s
-#define MAX_VELOCITY 30.0
+#define MAX_VELOCITY 15.0
 // #define DRAG_COEFF (0.5 * RHO * 0.1 * D * MATH_PI * pow(RADIUS, 2))
 #define DRAG_COEFF 0.8  // Coefficient de traînée aérodynamique
 
 #define SIGNAL_BASE_POWER -30.0  // -30.0 dBm : Puissance à 1m
 #define PATH_LOSS_EXPONENT 2.0   // Milieu Hertzien
 
-#define SAFETY_RADIUS 2.0   // Distance de sécurité avec les objets
+#define SAFETY_RADIUS 4.0   // Distance de sécurité avec les objets
 
 #define NB_ACTION 9
 

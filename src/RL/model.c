@@ -108,15 +108,19 @@ void DQNModelSetPath(DQNModel *m, char *path) {
  * - Décide si on explore (valeur aléatoire dépendant d'epsilon) ou si on exploite (prédiction avec le réseau)
  * - Dans ce cas, on fait une forward pass et un argmax pour récupérer la meilleure action
  */
-int predict(DQNModel *m, double *state) {
+int predict(DQNModel *m, double *state, double *out_q_value) {
     float r = (float)rand() / (float)RAND_MAX;
     int action;
+    double *q_values;
 
     if (r < m->config.epsilon) {
         action =  rand() % NB_ACTION;
+        q_values = nnForwardPropagation(m->q_network, state, 1);
+        if (out_q_value) *out_q_value = q_values[action];
     } else {
         double *q_values = nnForwardPropagation(m->q_network, state, 1);
         action = arrayMaxIndex(q_values, NB_ACTION);
+        if (out_q_value) *out_q_value = q_values[action];
     }
 
     return action;
@@ -143,24 +147,29 @@ void saveTransition(ReplayBuffer *b, Transition t) {
 }
 
 
-/* Fonction qui retourne un batch aléatoire du ReplayBuffer (voir model.h) */
+/* Fonction qui retourne un batch aléatoire du ReplayBuffer (voir model.h). Fisher-Yates algorithm */
 void getRandomBatch(ReplayBuffer *r, Transition *batch, int batchSize) {
     if (r->size < batchSize) return;
 
-    for (int i = 0; i < r->size; i++) {
-        r->buffer[i].flag = 0;
-    }
+    int current_pool_size = r->size;
 
-    int count = 0;
+    for (int count = 0; count < batchSize; count++) {
+        // Tirage de deux candidats (PER statique)
+        int idx1 = rand() % current_pool_size;
+        int idx2 = rand() % current_pool_size;
 
-    while (count < batchSize) {
-        int randomIndex = rand() % r->size;
+        // On choisit le plus intéressant pour l'entraînement
+        int selected_idx = (r->buffer[idx1].td_error > r->buffer[idx2].td_error) ? idx1 : idx2;
+        
+        // On l'injecte dans le batch
+        batch[count] = r->buffer[selected_idx];
 
-        if (r->buffer[randomIndex].flag == 0) {
-            batch[count] = r->buffer[randomIndex];
-            r->buffer[randomIndex].flag = 1;
-            count++;
-        }
+        // Échange instantané pour exclure cet index des prochains tirages du batch
+        current_pool_size--;
+    
+        Transition temp = r->buffer[selected_idx];
+        r->buffer[selected_idx] = r->buffer[current_pool_size];
+        r->buffer[current_pool_size] = temp;
     }
 }
 
@@ -228,6 +237,7 @@ void DeepQLearning(DQNModel *m) {
     double next_state[NB_STATES];
     double reward;
     int is_terminal;
+    long global_step_count = 0;
     Env *env = m->env;
 
     // On fait un certain nombre d'epochs (entraînement complet) pour valider la généralisation du réseau
@@ -236,15 +246,20 @@ void DeepQLearning(DQNModel *m) {
         double total_epoch_reward = 0.0;
 
         for (m->step_count = 0; m->step_count < env->max_steps; ++(m->step_count)) {
+            global_step_count++;
+            double current_q_prediction = 0.0; // On utilise le PER
+
             // On choisit l'action à prendre (action réelle du drone)
-            int action = predict(m, env->current_state);
+            int action = predict(m, env->current_state, &current_q_prediction);
 
             // Transition
             envStep(env, next_state, &reward, &is_terminal, action);
             total_epoch_reward += reward;
+            double td_error_initial = fabs(reward - current_q_prediction);
 
             // On sauvegarde : état de départ, action prise, récompense obtenue, état d'arrivée
             Transition copy;
+            copy.td_error = td_error_initial;
             copyTransition(&copy, env->current_state, action, reward, next_state, is_terminal);
             saveTransition(m->memory, copy);
 
@@ -257,7 +272,7 @@ void DeepQLearning(DQNModel *m) {
             }
 
             // On met à jour le clone (target_network)
-            if (m->step_count % m->networks_update_freq == 0) {
+            if (global_step_count > 0 && global_step_count % m->networks_update_freq == 0) {
                 networkCopyWeights(m->target_network, m->q_network);
             }
 

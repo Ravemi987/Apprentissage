@@ -6,10 +6,10 @@ Config defaultConfig(void) {
     return (Config){
         .gamma = 0.99,
         .epsilon = 1.0,
-        .epsilon_min = 0.05,
-        .epsilon_decay = 0.0008,
-        .epochs = 2000,
-        .max_steps = 5000
+        .epsilon_min = 0.0,
+        .epsilon_decay = 0.001,
+        .epochs = 1500,
+        .max_steps = 3000
     };
 }
 

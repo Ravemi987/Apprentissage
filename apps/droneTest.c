@@ -74,9 +74,9 @@ int main() {
 
     // Boucle de vol visuelle
     for (steps = 0; steps < env->max_steps; steps++) {
-        
+                
         // L'IA observe l'état et choisit la meilleure action absolue
-        int action = predict(ai, env->current_state);
+        int action = predict(ai, env->current_state, NULL);
 
         // Application de l'action physique et calcul du saut de trames (Frame Skip)
         envStep(env, next_state, &reward, &is_terminal, action);

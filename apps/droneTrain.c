@@ -62,23 +62,17 @@ int main() {
     printf("==================================================\n");
 
     DQNModel *ai = DQNModelCreate(&w, update_freq, batch_size, learning_rate, decay);
-    DQNModelSetPath(ai, model_path);
+    // Config *cfg = DQNModelGetConfig(ai);
+    // cfg->epsilon = 0.596;
 
-    // Ajustement de la configuration pour la version finale
-    Config *cfg = DQNModelGetConfig(ai);
-    cfg->epochs = 4000;
-    cfg->max_steps = 5000;
-    cfg->epsilon_decay = 0.0005;
-    cfg->epsilon_min = 0.05;
+    DQNModelSetPath(ai, model_path);
 
     if (fileExists(model_path)) {
         printf("Modèle existant trouvé ! Reprise de l'entraînement...\n");
         networkLoad(ai->q_network, model_path);
         networkCopyWeights(ai->target_network, ai->q_network); // Synchronisation
-        cfg->epsilon = 0.50; // On force l'epsilon à 0.50 pour l'exploration modérée
     } else {
         printf("Aucun modèle trouvé. Démarrage d'un nouvel entraînement WiFi (Table rase).\n");
-        cfg->epsilon = 1.0;  // Exploration totale par défaut
     }
 
     // Lancement de la boucle Deep-Q-Learning

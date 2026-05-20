@@ -34,7 +34,7 @@ int collisionWithUser(World *w) {
         // Un piéton est au sol (z=0) et mesure environ 2m de haut
         if (d->z >= 0.0 && d->z <= 2.0) {
             double dist_horiz = sqrt(pow(d->x - u.x, 2) + pow(d->y - u.y, 2));
-            if (dist_horiz < 1.0) return 1;
+            if (dist_horiz <= 1.0) return 1;
         }
     }
     return 0;
@@ -50,7 +50,7 @@ int collisionWithObstacle(World *w) {
         if (d->z >= obs.z && d->z <= (obs.z + obs.height)) {
             // On calcul la distance horizontale pour détecter si le drone est réellement dedans
             double dist_horiz = sqrt(pow(d->x - obs.x, 2) + pow(d->y - obs.y, 2));
-            if (dist_horiz < obs.radius) return 1;
+            if (dist_horiz <= obs.radius) return 1;
         }
     }
 
@@ -82,18 +82,10 @@ void handleCollisionWithObstacle(World * w) {
         
         // Si le drone est dans la tranche verticale de l'obstacle
         if (d->z >= obs.z && d->z <= (obs.z + obs.height)) {
-            double dx = d->x - obs.x;
-            double dy = d->y - obs.y;
-            double dist_horiz = sqrt(dx * dx + dy * dy);
+            double dist_horiz = sqrt(pow(d->x - obs.x, 2) + pow(d->y - obs.y, 2));
 
             // S'il a pénétré à l'intérieur du rayon de l'obstacle
-            if (dist_horiz < obs.radius) {
-                // Évitement de la division par zéro si le drone est pile au centre
-                if (dist_horiz < 1e-5) { dx = 1.0; dy = 0.0; dist_horiz = 1.0; }
-
-                // On repousse le drone
-                d->x = obs.x + (dx / dist_horiz) * obs.radius;
-                d->y = obs.y + (dy / dist_horiz) * obs.radius;
+            if (dist_horiz <= obs.radius) {
 
                 // Annulation des viteses (L'impact arrête le mouvement)
                 d->x_dot = 0.0;
@@ -113,19 +105,11 @@ void handleCollisionWithUsers(World *w) {
         
         // Un piéton est au sol (z=0) et mesure environ 2m de haut
         if (d->z >= 0.0 && d->z <= 2.0) {
-            double dx = d->x - u.x;
-            double dy = d->y - u.y;
-            double dist_horiz = sqrt(dx * dx + dy * dy);
-            
+            double dist_horiz = sqrt(pow(d->x - u.x, 2) + pow(d->y - u.y, 2));
             double user_radius = 1.0;
 
             // S'il rentre en collision physique avec l'utilisateur
-            if (dist_horiz < user_radius) {
-                if (dist_horiz < 1e-5) { dx = 1.0; dy = 0.0; dist_horiz = 1.0; }
-
-                // Push-back
-                d->x = u.x + (dx / dist_horiz) * user_radius;
-                d->y = u.y + (dy / dist_horiz) * user_radius;
+            if (dist_horiz <= user_radius) {
 
                 // Annulation des vitesses
                 d->x_dot = 0.0;
@@ -323,6 +307,13 @@ void updateVelocities(World *w, double dt) {
     d->x_dot = d->x_dot + (d->x_dot_dot * dt);
     d->y_dot = d->y_dot + (d->y_dot_dot * dt);
     d->z_dot = d->z_dot + (d->z_dot_dot * dt);
+
+    if (d->x_dot > MAX_VELOCITY)  d->x_dot = MAX_VELOCITY;
+    if (d->x_dot < -MAX_VELOCITY) d->x_dot = -MAX_VELOCITY;
+    if (d->y_dot > MAX_VELOCITY)  d->y_dot = MAX_VELOCITY;
+    if (d->y_dot < -MAX_VELOCITY) d->y_dot = -MAX_VELOCITY;
+    if (d->z_dot > MAX_VELOCITY)  d->z_dot = MAX_VELOCITY;
+    if (d->z_dot < -MAX_VELOCITY) d->z_dot = -MAX_VELOCITY;
 }
 
 
