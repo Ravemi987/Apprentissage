@@ -6,6 +6,7 @@
 #include "env.h"
 
 #define MIN(a,b) (((a)<(b))?(a):(b))
+#define MAX(a,b) (((a)>(b))?(a):(b))
 
 // si la seed est -1, on en genere une aleatoire, sinon, on prends cette seed
 
