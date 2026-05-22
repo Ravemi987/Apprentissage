@@ -3,6 +3,16 @@
 
 int seedUse;
 
+void bloquer(int x, int y, int radius, int *plan, int depth, int width) {
+    for (int i = x-radius; i <= x+radius; i++) {
+        for (int j = y-radius; j <= y+radius; j++) {
+            if (i >= 0 && i < width && j >= 0 && j < depth) {
+                plan[i*depth + j] = 1;
+            }
+        }
+    }
+}
+
 World creationWorld(Drone *drone, int numUsers, int numObstacles, double width, double height, double depth, int seed) {
     // initialisation aleatoire
     if (seed == -1) {
@@ -34,8 +44,10 @@ World creationWorld(Drone *drone, int numUsers, int numObstacles, double width, 
                 float hauteur = MIN(30.0, height) * (float)rand()/MAX((float)RAND_MAX, 1.0);
 
                 obstacles[indice] = (Obstacle3D){x, y, 0.0, radius, hauteur};
-                // on bloque la case
-                plan[x * (int)depth + y] = 1;
+                // on bloque les cases
+                bloquer(x, y, (int)radius, plan, (int)depth, (int)width);
+                // pour bloquer une seul case
+                // plan[x * (int)depth + y] = 1;
 
                 nonPlac = 0;
             }
