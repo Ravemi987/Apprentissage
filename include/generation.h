@@ -5,6 +5,8 @@
 #include "simulation.h"
 #include "env.h"
 
+#define MIN(a,b) (((a)<(b))?(a):(b))
+
 // si la seed est -1, on en genere une aleatoire, sinon, on prends cette seed
 
 /**
@@ -20,6 +22,9 @@
  */
 World creationWorld(Drone *drone, int numUsers, int numObstacles, double width, double height, double depth, int seed);
 
+typedef enum {
+    NO_RAND, LOW_RAND, TOTAL_RAND
+} Type_maj_w;
 
 /**
  * @brief Fonction qui permet de faire evoluer le monde en fonction du nombre de setp d'entraiement.
@@ -27,10 +32,10 @@ World creationWorld(Drone *drone, int numUsers, int numObstacles, double width, 
  * On fait de leger changements (deplacement leger des structures dans les memes "cases") si current_epoch < 500
  * On fait de gros changements (deplacement des structures entre les cases) si current_epoch > 500
  * @param world Le monde a modifier
- * @param current_epoch Le nombre de steps aillant deja eu lieux
- * @param seed Seed a utilisere pour la generation aleatoire (reproductiblite possible)
+ * @param type_maj_w La manière de mettre a jour le monde
+ * @param seed La seed pour l'aleatoire (-1 si seed aleatoires)
  */
-void majWorld(World *w, int current_epoch, int seed);
+void majWorld(World *w, Type_maj_w maj, int seed);
 
 
 #endif
