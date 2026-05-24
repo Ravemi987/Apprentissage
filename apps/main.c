@@ -1,10 +1,34 @@
 #include "control.h"
 
-int main() {
-    srand(time(NULL));
+int checkForResetFlag() {
+    if (access("reset.flag", F_OK) == 0) {
+        unlink("reset.flag");
+        return 1;
+    }
+    return 0;
+}
 
-    Drone d = createDrone(100.0, 50.0, 10.0);
-    World w = creationWorld(&d, 4, 3, 200.0, 200.0, 100.0, 1234);
+
+void resetSimulation(Drone *d, long *ticks, int *timeout_counter, int *current_manual_action, int *current_ai_action) {
+    *ticks = 0;
+    *timeout_counter = 0;
+    *current_manual_action = ENGINE_IDLE;
+    *current_ai_action = ENGINE_IDLE;
+    d->is_autonomous_mode = 1;
+}
+
+
+int main() {
+    int initial_seed = 1234;
+    srand(initial_seed);
+
+    double drone_start_x = 100.0;
+    double drone_start_y = 50.0;
+    double drone_start_z = 10.0;
+
+
+    Drone d = createDrone(drone_start_x,drone_start_y, drone_start_z);
+    World w = creationWorld(&d, 4, 3, 200.0, 200.0, 100.0, initial_seed);
 
     char *json_path = "web/state.json";
     char *model_path = "files/drone_wifi_brain.txt";
@@ -22,13 +46,21 @@ int main() {
 
     int running = 1;
     long ticks = 0;
-    int timeout_counter = 0;
-    int current_manual_action = ENGINE_IDLE;
-    int current_ai_action = ENGINE_IDLE;
-    
-    d.is_autonomous_mode = 1;
+    int timeout_counter, current_manual_action, current_ai_action;
+
+    resetSimulation(&d, &ticks, &timeout_counter, &current_manual_action, &current_ai_action);
 
     while (running) {
+
+        if (checkForResetFlag()) {
+            printf("\n[WEB INTERFACE] Demande de nouvelle map reçue ! Réinitialisation...\n");
+            majWorld(&w, TOTAL_RAND);            
+            d = createDrone(drone_start_x,drone_start_y, drone_start_z);
+            
+            resetSimulation(&d, &ticks, &timeout_counter, &current_manual_action, &current_ai_action);
+            
+            exportData(&w, json_path);
+        }
         
         readUserInput(&d, &running, &timeout_counter, &current_manual_action);
         

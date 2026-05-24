@@ -204,8 +204,7 @@ void lowDeplacementMAj(World *w) {
 }
 
 void majWorld(World *w, Type_maj_w maj){
-    switch (maj)
-    {
+    switch (maj) {
     case NO_RAND:
         // on ne change pas le monde
         break;
@@ -216,12 +215,13 @@ void majWorld(World *w, Type_maj_w maj){
         break;
     case TOTAL_RAND : {
         // redefinition de la map.
-        World wBis = creationWorld(w->drone, w->numUsers, w->numObstacles, w->width, w->height, w->depth, 0);
+        World wBis = creationWorld(w->drone, w->numUsers, w->numObstacles, w->width, w->height, w->depth, -1);
         free(w->users);
         free(w->obstacles);
         w->obstacles = wBis.obstacles;
         w->users = wBis.users;
-        break; }
+        break; 
+    }
     
     default:
         break;

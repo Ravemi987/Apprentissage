@@ -229,32 +229,17 @@ function drawViews(data) {
     ctxTop.restore();
 }
 
-document.getElementById('btnLaunch').addEventListener('click', () => {
-    // On envoie une requête POST au serveur pour lui dire de lancer l'exécutable
-    fetch('/api/launch-exe', { method: 'POST' })
+document.getElementById('btnRestart').addEventListener('click', () => {
+    trail.length = 0; 
+
+    fetch('/api/launch-main', { method: 'POST' })
         .then(response => {
-            if (response.ok) {
-                alert("Script exécuté avec succès !");
-            } else {
-                alert("Erreur lors du lancement du script.");
+            if (!response.ok) {
+                alert("Erreur lors du lancement de la simulation.");
             }
         })
         .catch(err => console.error("Impossible de joindre le serveur:", err));
 });
-
-document.getElementById('btnTest').addEventListener('click', () => {
-    // On envoie une requête POST au serveur pour lui dire de lancer l'exécutable
-    fetch('/api/launch-exe-test', { method: 'POST' })
-        .then(response => {
-            if (response.ok) {
-                alert("Script exécuté avec succès !");
-            } else {
-                alert("Erreur lors du lancement du script.");
-            }
-        })
-        .catch(err => console.error("Impossible de joindre le serveur:", err));
-});
-
 
 
 setInterval(() => {
