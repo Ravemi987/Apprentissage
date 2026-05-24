@@ -35,6 +35,124 @@ static ReplayBuffer *initReplayBuffer() {
     return b;
 }
 
+/*
+ * Sauvegarde complète : poids réseau + replay buffer + epsilon
+ * Format du checkpoint (.ckpt) :
+ *   Ligne 1       : epsilon courant
+ *   Ligne 2       : taille et head du replay buffer (size head)
+ *   Lignes 3..N   : transitions (state | action reward terminal td_error | next_state)
+ *   Reste         : poids du réseau (format networkSave existant)
+ */
+void modelSave(DQNModel *m, int epoch) {
+    // Sauvegarde des poids (inchangée)
+    networkSave(m->q_network, m->path);
+
+    // Construction du chemin .ckpt
+    size_t len = strlen(m->path);
+    char *ckpt_path = malloc(len + 6);
+    memcpy(ckpt_path, m->path, len);
+    memcpy(ckpt_path + len, ".ckpt", 6);
+
+    FILE *f = fopen(ckpt_path, "w");
+    if (!f) {
+        printf("Erreur: Impossible d'ouvrir %s pour la sauvegarde.\n", ckpt_path);
+        free(ckpt_path);
+        return;
+    }
+
+    // Epsilon et epoch
+    fprintf(f, "%.10f\n", m->config.epsilon);
+    fprintf(f, "%d\n", epoch);
+
+    // Métadonnées du replay buffer
+    fprintf(f, "%d %d\n", m->memory->size, m->memory->head);
+
+    // Transitions
+    for (int i = 0; i < m->memory->size; i++) {
+        Transition *t = &m->memory->buffer[i];
+
+        for (int s = 0; s < NB_STATES; s++)
+            fprintf(f, "%.8f ", t->state[s]);
+        fprintf(f, "| %d %.8f %d %.8f | ", t->action, t->reward, t->next_state_terminal, t->td_error);
+        for (int s = 0; s < NB_STATES; s++)
+            fprintf(f, "%.8f ", t->next_state[s]);
+        fprintf(f, "\n");
+    }
+
+    fclose(f);
+    printf("Checkpoint sauvegarde dans : %s (epoch : %d)\n", ckpt_path, epoch);
+    free(ckpt_path);
+}
+
+
+/*
+ * Chargement complet : poids réseau + replay buffer + epsilon
+ * A appeler après DQNModelCreate pour reprendre un entraînement.
+ */
+int modelLoad(DQNModel *m) {
+    // Chargement des poids (symétrique de networkSave)
+    networkLoad(m->q_network, m->path);
+    networkCopyWeights(m->target_network, m->q_network);
+
+    // Chemin .ckpt
+    size_t len = strlen(m->path);
+    char *ckpt_path = malloc(len + 6);
+    memcpy(ckpt_path, m->path, len);
+    memcpy(ckpt_path + len, ".ckpt", 6);
+
+    FILE *f = fopen(ckpt_path, "r");
+    if (!f) {
+        printf("Pas de checkpoint trouve (%s), démarrage a zero.\n", ckpt_path);
+        free(ckpt_path);
+        return -1;
+    }
+
+    // Epsilon
+    if (fscanf(f, "%lf\n", &m->config.epsilon) != 1) {
+        printf("Erreur lecture epsilon.\n");
+        fclose(f);
+        free(ckpt_path);
+        return -1;
+    }
+
+        // Epoch
+    int start_epoch = 0;
+    if (fscanf(f, "%d\n", &start_epoch) != 1) {
+        printf("Erreur lecture epoch.\n");
+        fclose(f); free(ckpt_path); return 0;
+    }
+
+    // Métadonnées replay buffer
+    int saved_size, saved_head;
+    if (fscanf(f, "%d %d\n", &saved_size, &saved_head) != 2) {
+        printf("Erreur lecture métadonnées replay buffer.\n");
+        fclose(f);
+        free(ckpt_path);
+        return -1;
+    }
+
+    // Transitions
+    for (int i = 0; i < saved_size; i++) {
+        Transition *t = &m->memory->buffer[i];
+
+        for (int s = 0; s < NB_STATES; s++)
+            fscanf(f, "%lf", &t->state[s]);
+        fscanf(f, " | %d %lf %d %lf | ", &t->action, &t->reward, &t->next_state_terminal, &t->td_error);
+        for (int s = 0; s < NB_STATES; s++)
+            fscanf(f, "%lf", &t->next_state[s]);
+    }
+
+    m->memory->size = saved_size;
+    m->memory->head = saved_head;
+
+    fclose(f);
+    printf("Checkpoint charge depuis : %s (buffer: %d transitions, epsilon: %.4f)\n",
+           ckpt_path, saved_size, m->config.epsilon);
+    free(ckpt_path);
+
+    return start_epoch;
+}
+
 
 /* 
  * Initialise un modèle DQN avec tout ce qu'il faut
@@ -233,7 +351,7 @@ void updateNetwork(DQNModel *m) {
  * Algorithme d'entraînement.
  * 
 */
-void DeepQLearning(DQNModel *m) {
+void DeepQLearning(DQNModel *m, int start_epoch) {
     double next_state[NB_STATES];
     double reward;
     int is_terminal;
@@ -241,7 +359,7 @@ void DeepQLearning(DQNModel *m) {
     Env *env = m->env;
 
     // On fait un certain nombre d'epochs (entraînement complet) pour valider la généralisation du réseau
-    for (int epoch = 0; epoch < m->config.epochs; ++epoch) {
+    for (int epoch = start_epoch; epoch < m->config.epochs; ++epoch) {
         resetEnv(env, epoch);  // Au début de chaque epochs, il faut repartir de l'état initial (comme le Q-Learning classique)
         double total_epoch_reward = 0.0;
 
@@ -284,9 +402,9 @@ void DeepQLearning(DQNModel *m) {
         printf("Epoch %4d/%d | Steps: %4d | Total Reward: %7.2f | Epsilon: %.3f\n", 
                epoch + 1, m->config.epochs, m->step_count, total_epoch_reward, m->config.epsilon);
 
-        if ((epoch + 1) % 50 == 0) {
+        if ((epoch + 1) % 5 == 0) {
             printf(">>> Sauvegarde automatique (Epoch %d) ! <<<\n", epoch + 1);
-            networkSave(m->q_network, m->path);
+            modelSave(m, epoch + 1);
         }
     }
 }

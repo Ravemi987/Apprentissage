@@ -66,20 +66,20 @@ int main() {
     // cfg->epsilon = 0.596;
 
     DQNModelSetPath(ai, model_path);
+    int start_epoch = 0;
 
     if (fileExists(model_path)) {
         printf("Modèle existant trouvé ! Reprise de l'entraînement...\n");
-        networkLoad(ai->q_network, model_path);
-        networkCopyWeights(ai->target_network, ai->q_network); // Synchronisation
+        start_epoch = modelLoad(ai);
     } else {
         printf("Aucun modèle trouvé. Démarrage d'un nouvel entraînement WiFi (Table rase).\n");
     }
 
     // Lancement de la boucle Deep-Q-Learning
-    DeepQLearning(ai);
+    DeepQLearning(ai, start_epoch);
 
     // Sauvegarde finale
-    networkSave(ai->q_network, model_path);
+    modelSave(ai, defaultConfig().epochs);
     printf("\n=== ENTRAINEMENT TERMINE AVEC SUCCES ===\n");
 
     DQNModelDelete(&ai);

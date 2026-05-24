@@ -84,7 +84,7 @@ typedef struct s_rl_model {
 } DQNModel;
 
 
-void DeepQLearning(DQNModel *m);
+void DeepQLearning(DQNModel *m, int start_epoch);
 
 DQNModel* DQNModelCreate(World *w, int update_freq, int batchSize, double learningRate, double decay);
 
@@ -97,5 +97,8 @@ Config* DQNModelGetConfig(DQNModel *m);
 void DQNModelSetPath(DQNModel *m, char *path);
 
 int predict(DQNModel *m, double *state, double *out_q_value);
+
+void modelSave(DQNModel *m, int epoch);
+int modelLoad(DQNModel *m);
 
 #endif
