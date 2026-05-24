@@ -136,10 +136,14 @@ int modelLoad(DQNModel *m) {
         Transition *t = &m->memory->buffer[i];
 
         for (int s = 0; s < NB_STATES; s++)
-            fscanf(f, "%lf", &t->state[s]);
-        fscanf(f, " | %d %lf %d %lf | ", &t->action, &t->reward, &t->next_state_terminal, &t->td_error);
+            if (fscanf(f, "%lf", &t->state[s]) != -1){};
+        
+        int action_val = 0;
+        if (fscanf(f, " | %d %lf %d %lf | ", &action_val, &t->reward, &t->next_state_terminal, &t->td_error) != -1) {};
+        t->action = (EngineAction)action_val;
+        
         for (int s = 0; s < NB_STATES; s++)
-            fscanf(f, "%lf", &t->next_state[s]);
+            if (fscanf(f, "%lf", &t->next_state[s]) != -1) {};
     }
 
     m->memory->size = saved_size;
@@ -402,7 +406,7 @@ void DeepQLearning(DQNModel *m, int start_epoch) {
         printf("Epoch %4d/%d | Steps: %4d | Total Reward: %7.2f | Epsilon: %.3f\n", 
                epoch + 1, m->config.epochs, m->step_count, total_epoch_reward, m->config.epsilon);
 
-        if ((epoch + 1) % 5 == 0) {
+        if ((epoch + 1) % 50 == 0) {
             printf(">>> Sauvegarde automatique (Epoch %d) ! <<<\n", epoch + 1);
             modelSave(m, epoch + 1);
         }
