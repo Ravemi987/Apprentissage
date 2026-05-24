@@ -294,15 +294,15 @@ void resetEnv(Env *env, int current_epoch) {
 
     if (current_epoch < 200) {
         // Mode Fixe
-        majWorld(&w, NO_RAND);
+        majWorld(w, NO_RAND);
         
     } else if (current_epoch < 500 && current_epoch % 30 == 0) {
         // Mode Bruit
-        majWorld(&w, LOW_RAND);
+        majWorld(w, LOW_RAND);
         
     } else if (current_epoch % 30 == 0) {
         // Mode Aléatoire Total 
-        majWorld(&w, TOTAL_RAND);
+        majWorld(w, TOTAL_RAND);
     }
 
     getStateVector(env, env->current_state);

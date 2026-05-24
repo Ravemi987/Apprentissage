@@ -23,7 +23,21 @@ class MyHandler(http.server.SimpleHTTPRequestHandler):
                 self.end_headers()
                 self.wfile.write(str(e).encode())
 
-                print(e)
+        elif self.path == '/api/launch-exe-test':
+            try:
+                root_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+                # Lance ton exécutable en arrière-plan sans bloquer le serveur
+                # Remplace 'mon_programme.exe' par le nom de ton script ou exécutable
+                subprocess.Popen(['./droneTest'], cwd=root_dir) 
+                
+                self.send_response(200)
+                self.end_headers()
+                self.wfile.write(b"OK")
+            except Exception as e:
+                self.send_response(500)
+                self.end_headers()
+                self.wfile.write(str(e).encode())
+
         else:
             self.send_response(404)
             self.end_headers()

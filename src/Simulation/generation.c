@@ -30,10 +30,12 @@ World creationWorld(Drone *drone, int numUsers, int numObstacles, double width, 
     // initialisation aleatoire
     if (seed == -1) {
         seedUse = time(NULL); // mettre une genearation aleatoire
+        srand(seedUse);
     } else if (seed != 0) {
         seedUse = seed;
+        srand(seedUse);
     }
-    srand(seedUse);
+    
 
 
     // Creation d'une "grille" contenant ((numUser + numObstacles)/2)**2 cases 
