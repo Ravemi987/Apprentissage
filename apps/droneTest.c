@@ -5,35 +5,22 @@
 #include <unistd.h>
 #include "simulation.h"
 #include "model.h"
+#include <generation.h>
 
 int main() {
+        // Initialisation des structutres
     Drone d = createDrone(100.0, 50.0, 10.0);
 
-    User users[] = { 
-        {170.0, 80.0, 0.0}, 
-        {165.0, 75.0, 0.0},
-        {175.0, 85.0, 0.0},
-        {180.0, 70.0, 0.0}
-    }; 
-    int num_users = sizeof(users) / sizeof(users[0]);
+    int width = 200.0;
+    int height = 200.0;
+    int depth = 100.0;
 
-    Obstacle3D obstacles[] = {
-        {30.0, 20.0, 0.0, 3.0, 15.0},   
-        {30.0, 80.0, 0.0, 4.0, 20.0},  
-        {100.0, 10.0, 0.0, 2.5, 12.0}
-    };
-    int num_obstacles = sizeof(obstacles) / sizeof(obstacles[0]);
+    int seed = 1234;
+    int num_users = 4;
+    int num_obstacles = 3;
 
-    World w = { 
-        .drone = &d, 
-        .users = users, 
-        .numUsers = num_users, 
-        .obstacles = obstacles,
-        .numObstacles = num_obstacles,
-        .width = 200.0, 
-        .height = 100.0, 
-        .depth = 100.0
-    };
+    // Assemblage du monde 3D
+    World w = creationWorld(&d, num_users, num_obstacles, width, height, depth, seed);
 
     char *model_path = "files/drone_wifi_brain.txt";
     char *json_path = "web/state.json";

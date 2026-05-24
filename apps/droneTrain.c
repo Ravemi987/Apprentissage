@@ -6,6 +6,7 @@
 #include <sys/stat.h> // Pour vérifier si le fichier existe
 #include "simulation.h"
 #include "model.h"
+#include <generation.h>
 
 // Fonction utilitaire pour vérifier si un fichier existe
 int fileExists(const char *filename) {
@@ -16,37 +17,19 @@ int fileExists(const char *filename) {
 int main() {
     srand(time(NULL));
 
-    // Initialisation de la physique du drone
+    // Initialisation des structutres
     Drone d = createDrone(100.0, 50.0, 10.0);
 
-    // Définition de la population (Le nombre d'utilisateurs s'adapte automatiquement)
-    User users[] = { 
-        {40.0, 40.0, 0.0}, 
-        {160.0, 60.0, 0.0},
-        {100.0, 30.0, 0.0},
-        {80.0, 70.0, 0.0}
-    }; 
-    int num_users = sizeof(users) / sizeof(users[0]);
+    int width = 200.0;
+    int height = 200.0;
+    int depth = 100.0;
 
-    // Définition des obstacles 3D (Arbres ou bâtiments : x, y, z, rayon, hauteur)
-    Obstacle3D obstacles[] = {
-        {60.0, 50.0, 0.0, 3.0, 15.0},   // Arbre 1
-        {140.0, 45.0, 0.0, 4.0, 20.0},  // Arbre 2
-        {100.0, 80.0, 0.0, 2.5, 12.0}   // Arbre 3
-    };
-    int num_obstacles = sizeof(obstacles) / sizeof(obstacles[0]);
+    int seed = 1234;
+    int num_users = 4;
+    int num_obstacles = 3;
 
-    // Assemblage du monde 3D complet
-    World w = { 
-        .drone = &d, 
-        .users = users, 
-        .numUsers = num_users, 
-        .obstacles = obstacles,
-        .numObstacles = num_obstacles,
-        .width = 200.0, 
-        .height = 100.0, 
-        .depth = 100.0  // Rappel : altitude maximale du ciel
-    };
+    // Assemblage du monde 3D
+    World w = creationWorld(&d, num_users, num_obstacles, width, height, depth, seed);
 
     // Initialisation des hyperparamètres de l'IA (DQN)
     int update_freq = 2000;
@@ -79,7 +62,9 @@ int main() {
     DeepQLearning(ai, start_epoch);
 
     // Sauvegarde finale
+    // rajouter la sauvegarde de la seed ici.
     modelSave(ai, defaultConfig().epochs);
+
     printf("\n=== ENTRAINEMENT TERMINE AVEC SUCCES ===\n");
 
     DQNModelDelete(&ai);

@@ -5,7 +5,7 @@ const ctxTop = canvasTop.getContext('2d');
 
 // Dimensions physiques (Synchronisées avec ton C)
 const physSpanX = 200; // Axe X physique = Avancement (0 à 200)
-const physSpanY = 100; // Axe Y physique = Gauche/Droite (0 à 100)
+const physSpanY = 200; // Axe Y physique = Gauche/Droite (0 à 200) -> MAJ
 const physSpanZ = 100; // Axe Z physique = Altitude (0 à 100)
 const gridSpacing = 20;
 const trail = [];
@@ -13,8 +13,8 @@ const trail = [];
 /* --- MAGIE DU MAPPING (Correction de l'inversion) --- */
 
 // En physique : Y augmente vers la gauche. 
-// En visuel : On veut que 0 soit à gauche et 100 à droite.
-// Solution : Visuel_Y = 100 - Physique_Y
+// En visuel : On veut que 0 soit à gauche et 200 à droite.
+// Solution : Visuel_Y = 200 - Physique_Y
 function getVisualX(physY, canvas) { 
     let visualY = physSpanY - physY; 
     return (visualY / physSpanY) * canvas.width; 
@@ -41,7 +41,7 @@ function drawGridProfile() {
     ctxProfile.font = "11px 'Segoe UI'"; ctxProfile.fillStyle = "#bac2de";
     
     // Lignes verticales (Gauche/Droite visuel)
-    // On itère sur la dimension visuelle pour avoir 0 à gauche et max à droite
+    // S'adapte automatiquement grâce à physSpanY
     for (let v = 0; v <= physSpanY; v += gridSpacing) {
         let px = (v / physSpanY) * canvasProfile.width;
         ctxProfile.beginPath(); ctxProfile.moveTo(px, 0); ctxProfile.lineTo(px, canvasProfile.height); ctxProfile.stroke();
@@ -55,7 +55,11 @@ function drawGridProfile() {
     }
     ctxProfile.font = "bold 13px 'Segoe UI'"; ctxProfile.fillStyle = "#89b4fa";
     ctxProfile.fillText("Z (Altitude)", 15, 25);
-    ctxProfile.fillText("Y (Gauche/Droite)", canvasProfile.width - 120, canvasProfile.height - 15);
+    
+    // Aligné proprement au centre bas pour éviter les collisions avec les chiffres de la grille
+    ctxProfile.textAlign = "center";
+    ctxProfile.fillText("Y (Gauche/Droite)", canvasProfile.width / 2, canvasProfile.height - 25);
+    ctxProfile.textAlign = "left"; // Reset
 }
 
 function drawGridTop() {
@@ -76,7 +80,11 @@ function drawGridTop() {
     }
     ctxTop.font = "bold 13px 'Segoe UI'"; ctxTop.fillStyle = "#89b4fa";
     ctxTop.fillText("X (Avant/Arrière)", 15, 25);
-    ctxTop.fillText("Y (Gauche/Droite)", canvasTop.width - 120, canvasTop.height - 15);
+    
+    // Aligné proprement au centre bas également
+    ctxTop.textAlign = "center";
+    ctxTop.fillText("Y (Gauche/Droite)", canvasTop.width / 2, canvasTop.height - 25);
+    ctxTop.textAlign = "left"; // Reset
 }
 
 function drawViews(data) {
@@ -96,34 +104,28 @@ function drawViews(data) {
     // 1. OBSTACLES & SCAN LiDAR
     // ==========================================
     if (data.obstacles) {
-        // Calculer la distance de chaque obstacle par rapport au drone
         data.obstacles.forEach(obs => {
             obs.distSq = Math.pow(data.drone.x - obs.x, 2) + Math.pow(data.drone.y - obs.y, 2) + Math.pow(data.drone.z - obs.z, 2);
             obs.isClosest = false;
         });
 
-        // Trier pour trouver les 3 plus proches (Simulation du capteur du réseau de neurones)
         let closestObstacles = [...data.obstacles].sort((a, b) => a.distSq - b.distSq).slice(0, 3);
         closestObstacles.forEach(obs => obs.isClosest = true);
 
-        // Effet de clignotement basé sur l'heure (Pulsation entre 0.4 et 1.0)
         const time = Date.now();
         const blinkAlpha = 0.7 + 0.3 * Math.sin(time / 150); 
 
         data.obstacles.forEach(obs => {
-            // Calculs Vue de Dessus (Cercle)
             let cxTop = getVisualX(obs.y, canvasTop);
             let cyTop = getVisualY(obs.x, canvasTop);
-            let visualRadius = (obs.radius / physSpanY) * canvasTop.width;
+            let visualRadius = (obs.radius / physSpanY) * canvasTop.width; // S'adapte au nouveau physSpanY
             
-            // Calculs Vue de Profil (Rectangle)
             let cxProf = getVisualX(obs.y, canvasProfile);
             let bottomZ = getVisualZ(obs.z, canvasProfile);
             let topZ = getVisualZ(obs.z + obs.height, canvasProfile);
-            let widthProf = (obs.radius * 2 / physSpanY) * canvasProfile.width;
-            let heightProf = bottomZ - topZ; // Hauteur visuelle (négative en pixels canvas)
+            let widthProf = (obs.radius * 2 / physSpanY) * canvasProfile.width; // S'adapte au nouveau physSpanY
+            let heightProf = bottomZ - topZ;
 
-            // Style de base (Arbre vert discret)
             ctxTop.fillStyle = 'rgba(166, 227, 161, 0.15)'; 
             ctxTop.strokeStyle = 'rgba(166, 227, 161, 0.4)';
             ctxTop.lineWidth = 1;
@@ -132,7 +134,6 @@ function drawViews(data) {
             ctxProfile.strokeStyle = 'rgba(166, 227, 161, 0.4)';
             ctxProfile.lineWidth = 1;
 
-            // Surcharge de style si accroché par le LiDAR (Clignotement Jaune/Orange)
             if (obs.isClosest) {
                 ctxTop.strokeStyle = `rgba(249, 226, 175, ${blinkAlpha})`;
                 ctxTop.lineWidth = 2;
@@ -145,19 +146,17 @@ function drawViews(data) {
                 ctxProfile.shadowBlur = 15 * blinkAlpha;
             }
 
-            // Dessin Top (Cylindre vu de haut)
             ctxTop.beginPath();
             ctxTop.arc(cxTop, cyTop, visualRadius, 0, Math.PI*2);
             ctxTop.fill();
             ctxTop.stroke();
-            ctxTop.shadowBlur = 0; // Reset ombre
+            ctxTop.shadowBlur = 0; 
 
-            // Dessin Profile (Tranche de l'arbre)
             ctxProfile.beginPath();
             ctxProfile.rect(cxProf - widthProf/2, topZ, widthProf, heightProf);
             ctxProfile.fill();
             ctxProfile.stroke();
-            ctxProfile.shadowBlur = 0; // Reset ombre
+            ctxProfile.shadowBlur = 0; 
         });
     }
 
@@ -213,7 +212,6 @@ function drawViews(data) {
     // ==========================================
     // 5. DRONE 
     // ==========================================
-    // Vue Profil
     ctxProfile.save();
     ctxProfile.translate(getVisualX(data.drone.y, canvasProfile), getVisualZ(data.drone.z, canvasProfile));
     ctxProfile.rotate(data.drone.phi);
@@ -221,7 +219,6 @@ function drawViews(data) {
     ctxProfile.fillStyle = '#f38ba8'; ctxProfile.beginPath(); ctxProfile.arc(0, 0, 4, 0, Math.PI*2); ctxProfile.fill();
     ctxProfile.restore();
 
-    // Vue Top
     ctxTop.save();
     ctxTop.translate(getVisualX(data.drone.y, canvasTop), getVisualY(data.drone.x, canvasTop));
     ctxTop.rotate(data.drone.psi);
@@ -231,6 +228,34 @@ function drawViews(data) {
     ctxTop.fillStyle = '#cdd6f4'; ctxTop.beginPath(); ctxTop.arc(0, 0, 5, 0, Math.PI*2); ctxTop.fill();
     ctxTop.restore();
 }
+
+document.getElementById('btnLaunch').addEventListener('click', () => {
+    // On envoie une requête POST au serveur pour lui dire de lancer l'exécutable
+    fetch('/api/launch-exe', { method: 'POST' })
+        .then(response => {
+            if (response.ok) {
+                alert("Script exécuté avec succès !");
+            } else {
+                alert("Erreur lors du lancement du script.");
+            }
+        })
+        .catch(err => console.error("Impossible de joindre le serveur:", err));
+});
+
+document.getElementById('btnTest').addEventListener('click', () => {
+    // On envoie une requête POST au serveur pour lui dire de lancer l'exécutable
+    fetch('/api/launch-exe-test', { method: 'POST' })
+        .then(response => {
+            if (response.ok) {
+                alert("Script exécuté avec succès !");
+            } else {
+                alert("Erreur lors du lancement du script.");
+            }
+        })
+        .catch(err => console.error("Impossible de joindre le serveur:", err));
+});
+
+
 
 setInterval(() => {
     fetch('state.json', { cache: 'no-store' })
