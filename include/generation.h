@@ -37,5 +37,9 @@ typedef enum {
  */
 void majWorld(World *w, Type_maj_w maj);
 
+void fillUsersGrid(Env *env, double *state_out);
+
+void captureObstacles(Env *env, double *state_out);
+
 
 #endif

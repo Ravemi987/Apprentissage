@@ -2,6 +2,13 @@
 
 /* ========= PHYSIQUE ========= */
 
+static double wrapAngle(double angle) {
+    angle = fmod(angle + MATH_PI, 2.0 * MATH_PI);
+    if (angle < 0.0) angle += 2.0 * MATH_PI; 
+    return angle - MATH_PI;
+}
+
+
 Drone createDrone(double x, double y, double z) {
     Drone d;
 
@@ -172,8 +179,15 @@ void handleCommand(Drone *d, int action) {
     if (action == ENGINE_PITCH_RIGHT)   d->target_pitch = -ANGLE_LIMIT;  // Pitch arrière
     if (action == ENGINE_ROLL_LEFT)     d->target_roll = -ANGLE_LIMIT;   // Roll gauche
     if (action == ENGINE_ROLL_RIGHT)    d->target_roll = ANGLE_LIMIT;    // Roll droite
-    if (action == ENGINE_YAW_LEFT)      d->target_yaw -= 0.005; // Yaw gauche
-    if (action == ENGINE_YAW_RIGHT)     d->target_yaw += 0.005; // Yaw droite
+
+    if (action == ENGINE_YAW_LEFT) {
+        d->target_yaw -= 0.05;
+        d->target_yaw = wrapAngle(d->target_yaw); // Corrige le bug de la toupie
+    }
+    if (action == ENGINE_YAW_RIGHT) {
+        d->target_yaw += 0.05;
+        d->target_yaw = wrapAngle(d->target_yaw); // Corrige le bug de la toupie
+    }
 }
 
 
@@ -257,17 +271,31 @@ void updateAngularVelocities(World *w, double dt) {
     d->q = d->q + (d->q_dot * dt);
     d->r = d->r + (d->r_dot * dt);
 
+    double true_rot = (w->is_autonomous_mode) ? MAX_ROT : 5.0;
+
     // Sécurité : plafonner la vitesse de rotation
-    if (d->p > MAX_ROT) d->p = MAX_ROT; else if (d->p < -MAX_ROT) d->p = -MAX_ROT;
-    if (d->q > MAX_ROT) d->q = MAX_ROT; else if (d->q < -MAX_ROT) d->q = -MAX_ROT;
-    if (d->r > MAX_ROT) d->r = MAX_ROT; else if (d->r < -MAX_ROT) d->r = -MAX_ROT;
+    if (d->p > true_rot) d->p = true_rot; else if (d->p < -true_rot) d->p = -true_rot;
+    if (d->q > true_rot) d->q = true_rot; else if (d->q < -true_rot) d->q = -true_rot;
+    if (d->r > true_rot) d->r = true_rot; else if (d->r < -true_rot) d->r = -true_rot;
 }
 
 
-static double wrapAngle(double angle) {
-    angle = fmod(angle + MATH_PI, 2.0 * MATH_PI);
-    if (angle < 0.0) angle += 2.0 * MATH_PI; 
-    return angle - MATH_PI;
+void updateVelocities(World *w, double dt) {
+    Drone *d = w->drone;
+
+    // Mise à jour des vitesses linéaires
+    d->x_dot = d->x_dot + (d->x_dot_dot * dt);
+    d->y_dot = d->y_dot + (d->y_dot_dot * dt);
+    d->z_dot = d->z_dot + (d->z_dot_dot * dt);
+
+    double true_speed = (w->is_autonomous_mode) ? MAX_VELOCITY : 15.0;
+
+    if (d->x_dot > true_speed)  d->x_dot = true_speed;
+    if (d->x_dot < -true_speed) d->x_dot = -true_speed;
+    if (d->y_dot > true_speed)  d->y_dot = true_speed;
+    if (d->y_dot < -true_speed) d->y_dot = -true_speed;
+    if (d->z_dot > true_speed)  d->z_dot = true_speed;
+    if (d->z_dot < -true_speed) d->z_dot = -true_speed;
 }
 
 
@@ -297,23 +325,6 @@ void computeAccelerations(World *w, double *U) {
     d->z_dot_dot = (cos(d->phi) * cos(d->theta)) * thrustFactor - G - (DRAG_COEFF * d->z_dot / M);
     d->x_dot_dot = (sin(d->phi) * sin(d->psi) + cos(d->psi) * sin(d->theta) * cos(d->phi)) * thrustFactor - (DRAG_COEFF * d->x_dot / M);
     d->y_dot_dot = (- sin(d->phi) * cos(d->psi) + sin(d->psi) * sin(d->theta) * cos(d->phi)) * thrustFactor - (DRAG_COEFF * d->y_dot / M);
-}
-
-
-void updateVelocities(World *w, double dt) {
-    Drone *d = w->drone;
-
-    // Mise à jour des vitesses linéaires
-    d->x_dot = d->x_dot + (d->x_dot_dot * dt);
-    d->y_dot = d->y_dot + (d->y_dot_dot * dt);
-    d->z_dot = d->z_dot + (d->z_dot_dot * dt);
-
-    if (d->x_dot > MAX_VELOCITY)  d->x_dot = MAX_VELOCITY;
-    if (d->x_dot < -MAX_VELOCITY) d->x_dot = -MAX_VELOCITY;
-    if (d->y_dot > MAX_VELOCITY)  d->y_dot = MAX_VELOCITY;
-    if (d->y_dot < -MAX_VELOCITY) d->y_dot = -MAX_VELOCITY;
-    if (d->z_dot > MAX_VELOCITY)  d->z_dot = MAX_VELOCITY;
-    if (d->z_dot < -MAX_VELOCITY) d->z_dot = -MAX_VELOCITY;
 }
 
 

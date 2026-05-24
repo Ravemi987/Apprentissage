@@ -396,8 +396,8 @@ void DeepQLearning(DQNModel *m, int start_epoch, int seed) {
             // On passe au prochain état
             memcpy(env->current_state, next_state, NB_STATES * sizeof(double));
 
-            // On met à jour le réseau
-            if (m->memory->size > m->config.batch_size) {
+            // On met à jour le réseau tous les 3 steps
+            if ((m->memory->size > m->config.batch_size) && (global_step_count % 3 == 0)) {
                 updateNetwork(m);
             }
 
