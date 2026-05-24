@@ -143,28 +143,12 @@ static int nnGetPredictedClass(double *outputs, int numClasses) {
 }
 
 
-// static int nnGetCorrectPredictions(double *predictions, double *expectedOutputs, int batchSize, int numClasses) {
-//     int correct = 0;
-//     for (int i = 0; i < batchSize; i++) {
-//         int predClass = nnGetPredictedClass(&predictions[i * numClasses], numClasses);
-//         int expectedClass = nnGetPredictedClass(&expectedOutputs[i * numClasses], numClasses);
-
-//         if (predClass == expectedClass) {
-//             correct++;
-//         }
-//     }
-//     return correct;
-// }
-
-
 static void nnGradientDescent(NeuralNetwork *nn, double *trainInputs, double *expectedOutputs,
                     int rows, double learningRate, int batchSize) {
     int inputCols = layerGetFeaturesNumber(nn->layers[0]);
     int outputCols = layerGetNeuronsNumber(getLastLayer(nn));
 
     int batchsNumber = (int)ceil((double)rows / batchSize);
-    // double totalLoss = 0.0;
-    // int totalCorrect = 0;
 
     for (int batch = 0; batch < batchsNumber; batch++) {
         int start = batch * batchSize;
@@ -177,12 +161,8 @@ static void nnGradientDescent(NeuralNetwork *nn, double *trainInputs, double *ex
         
         nnBackPropagation(nn, outputsPtr, batchExpected, realBatchSize);
 
-        // totalLoss += nn->lossFunction->globalLoss(outputsPtr, batchExpected, realBatchSize, outputCols) * realBatchSize;
-        // totalCorrect += nnGetCorrectPredictions(outputsPtr, batchExpected, realBatchSize, outputCols); 
-
         nnUpdateAllWeights(nn, learningRate, realBatchSize);
     }
-    //printf("Loss: %.6f - Accuracy: %.2f%%\n", totalLoss / rows, ((double)totalCorrect / rows) * 100.0);
 }
 
 

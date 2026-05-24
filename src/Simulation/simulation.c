@@ -167,25 +167,34 @@ void applyLimits(World *w) {
 
 /* Traduit les ordres en vitesse moteur */
 void handleCommand(Drone *d, int action) {
-    if (action == ENGINE_IDLE) {
-        d->target_roll = 0.0;
-        d->target_pitch = 0.0;
-        d->target_thrust = M * G;
+    d->target_roll = 0.0;
+    d->target_pitch = 0.0;
+    d->target_thrust = M * G;
+
+    // Mode par défaut (autonome)
+    double thrust_boost = 4.0;
+    double yaw_increment = 0.05;
+    double current_angle_limit = ANGLE_LIMIT;
+
+    if (d->is_autonomous_mode == 0) {
+        thrust_boost = 12.0;
+        yaw_increment = 0.02;
+        current_angle_limit = 0.50;
     }
 
-    if (action == ENGINE_UP)            d->target_thrust = (M * G) + 4.0; // Monter
-    if (action == ENGINE_DOWN)          d->target_thrust = (M * G) - 4.0; // Descendre
-    if (action == ENGINE_PITCH_LEFT)    d->target_pitch = ANGLE_LIMIT;   // Pitch avant
-    if (action == ENGINE_PITCH_RIGHT)   d->target_pitch = -ANGLE_LIMIT;  // Pitch arrière
-    if (action == ENGINE_ROLL_LEFT)     d->target_roll = -ANGLE_LIMIT;   // Roll gauche
-    if (action == ENGINE_ROLL_RIGHT)    d->target_roll = ANGLE_LIMIT;    // Roll droite
+    if (action == ENGINE_UP)            d->target_thrust = (M * G) + thrust_boost; // Monter
+    if (action == ENGINE_DOWN)          d->target_thrust = (M * G) - thrust_boost; // Descendre
+    if (action == ENGINE_PITCH_LEFT)    d->target_pitch = current_angle_limit;   // Pitch avant
+    if (action == ENGINE_PITCH_RIGHT)   d->target_pitch = -current_angle_limit;  // Pitch arrière
+    if (action == ENGINE_ROLL_LEFT)     d->target_roll = -current_angle_limit;   // Roll gauche
+    if (action == ENGINE_ROLL_RIGHT)    d->target_roll = current_angle_limit;    // Roll droite
 
     if (action == ENGINE_YAW_LEFT) {
-        d->target_yaw -= 0.05;
+        d->target_yaw -= yaw_increment;
         d->target_yaw = wrapAngle(d->target_yaw); // Corrige le bug de la toupie
     }
     if (action == ENGINE_YAW_RIGHT) {
-        d->target_yaw += 0.05;
+        d->target_yaw += yaw_increment;
         d->target_yaw = wrapAngle(d->target_yaw); // Corrige le bug de la toupie
     }
 }
@@ -271,7 +280,7 @@ void updateAngularVelocities(World *w, double dt) {
     d->q = d->q + (d->q_dot * dt);
     d->r = d->r + (d->r_dot * dt);
 
-    double true_rot = (w->is_autonomous_mode) ? MAX_ROT : 5.0;
+    double true_rot = (d->is_autonomous_mode) ? MAX_ROT : 5.0;
 
     // Sécurité : plafonner la vitesse de rotation
     if (d->p > true_rot) d->p = true_rot; else if (d->p < -true_rot) d->p = -true_rot;
@@ -288,7 +297,7 @@ void updateVelocities(World *w, double dt) {
     d->y_dot = d->y_dot + (d->y_dot_dot * dt);
     d->z_dot = d->z_dot + (d->z_dot_dot * dt);
 
-    double true_speed = (w->is_autonomous_mode) ? MAX_VELOCITY : 15.0;
+    double true_speed = (d->is_autonomous_mode) ? MAX_VELOCITY : 30.0;
 
     if (d->x_dot > true_speed)  d->x_dot = true_speed;
     if (d->x_dot < -true_speed) d->x_dot = -true_speed;
@@ -312,8 +321,10 @@ void updateOrientation(World *w, double dt) {
     d->psi = wrapAngle(d->psi);
     d->theta = wrapAngle(d->theta);
 
-    if (d->theta > ANGLE_LIMIT)  d->theta = ANGLE_LIMIT;
-    if (d->theta < -ANGLE_LIMIT) d->theta = -ANGLE_LIMIT;
+    double current_angle_limit = (d->is_autonomous_mode) ? ANGLE_LIMIT : 0.50;
+
+    if (d->theta > current_angle_limit)  d->theta = current_angle_limit;
+    if (d->theta < -current_angle_limit) d->theta = -current_angle_limit;
 }
 
 

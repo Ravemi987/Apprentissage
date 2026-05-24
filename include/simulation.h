@@ -64,6 +64,7 @@ typedef struct {
     PIDController pid_pitch;
     PIDController pid_yaw;
 
+    int is_autonomous_mode;
 } Drone;
 
 
@@ -99,7 +100,6 @@ typedef struct {
     int numUsers;
     int numObstacles;
     double width, height, depth;  // Dimensions de la carte. Attention, depth est la vraie hauteur ! (axe Z vers le haut)
-    int is_autonomous_mode;         
 } World;
 
 

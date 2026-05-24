@@ -116,11 +116,14 @@ World creationWorld(Drone *drone, int numUsers, int numObstacles, double width, 
     // Creation d'une "grille" contenant ((numUser + numObstacles)/2)**2 cases 
     // ou faire des cases de 1m**2 et 1m seul obstacle par case
     int *plan = calloc((int)width * (int)height, sizeof(int));
-    
     User *users = malloc(numUsers * sizeof(User));
     Obstacle3D *obstacles = malloc(numObstacles * sizeof(Obstacle3D));
 
-    // On bloque direct la case du drone
+    // On bloque direct la case du drone avec un rayon de sécurité
+    int drone_spawn_x = (int)drone->x;
+    int drone_spawn_y = (int)drone->y;
+    int safety_radius_spawn = 6; 
+    bloquer(drone_spawn_x, drone_spawn_y, safety_radius_spawn, plan, (int)height, (int)width);
 
     // Iteration sur la grille pour placer tous les obstacles
     for (int indice = 0; indice < numObstacles; indice++) {

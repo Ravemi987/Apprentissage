@@ -109,7 +109,7 @@ int modelLoad(DQNModel *m, int *start_epoch, int *seed) {
     }
 
     // Seed
-    if (fscanf(f, "%d\n", seed) != -1) {
+    if (fscanf(f, "%d\n", seed) != 1) {
         printf("Erreur lecture seed.\n");
         fclose(f);
         free(ckpt_path);

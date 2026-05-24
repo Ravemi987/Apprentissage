@@ -52,5 +52,6 @@ void resetEnv(Env *env, int current_epoch);
 
 Env *initEnv(World *w, int max_steps);
 
+void getStateVector(Env *env, double *state_out);
 
 #endif
