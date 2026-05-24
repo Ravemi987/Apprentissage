@@ -43,7 +43,7 @@ static ReplayBuffer *initReplayBuffer() {
  *   Lignes 3..N   : transitions (state | action reward terminal td_error | next_state)
  *   Reste         : poids du réseau (format networkSave existant)
  */
-void modelSave(DQNModel *m, int epoch) {
+void modelSave(DQNModel *m, int epoch, int seed) {
     // Sauvegarde des poids (inchangée)
     networkSave(m->q_network, m->path);
 
@@ -60,7 +60,8 @@ void modelSave(DQNModel *m, int epoch) {
         return;
     }
 
-    // Epsilon et epoch
+    // Seed, Epsilon et epoch
+    fprintf(f, "%d\n", seed);
     fprintf(f, "%.10f\n", m->config.epsilon);
     fprintf(f, "%d\n", epoch);
 
@@ -89,7 +90,7 @@ void modelSave(DQNModel *m, int epoch) {
  * Chargement complet : poids réseau + replay buffer + epsilon
  * A appeler après DQNModelCreate pour reprendre un entraînement.
  */
-int modelLoad(DQNModel *m) {
+int modelLoad(DQNModel *m, int *start_epoch, int *seed) {
     // Chargement des poids (symétrique de networkSave)
     networkLoad(m->q_network, m->path);
     networkCopyWeights(m->target_network, m->q_network);
@@ -107,6 +108,14 @@ int modelLoad(DQNModel *m) {
         return -1;
     }
 
+    // Seed
+    if (fscanf(f, "%d\n", seed) != -1) {
+        printf("Erreur lecture seed.\n");
+        fclose(f);
+        free(ckpt_path);
+        return -1;
+    }
+
     // Epsilon
     if (fscanf(f, "%lf\n", &m->config.epsilon) != 1) {
         printf("Erreur lecture epsilon.\n");
@@ -115,9 +124,9 @@ int modelLoad(DQNModel *m) {
         return -1;
     }
 
-        // Epoch
-    int start_epoch = 0;
-    if (fscanf(f, "%d\n", &start_epoch) != 1) {
+    // Epoch
+    *start_epoch = 0;
+    if (fscanf(f, "%d\n", start_epoch) != 1) {
         printf("Erreur lecture epoch.\n");
         fclose(f); free(ckpt_path); return 0;
     }
@@ -154,7 +163,7 @@ int modelLoad(DQNModel *m) {
            ckpt_path, saved_size, m->config.epsilon);
     free(ckpt_path);
 
-    return start_epoch;
+    return 0;
 }
 
 
@@ -163,23 +172,19 @@ int modelLoad(DQNModel *m) {
  * On passe une config par defaut, on ne choisit que la fréquence de synchronisation des DNN,
  * et la taille d'un batch
 */
-DQNModel* DQNModelCreate(World *w, int update_freq, int batchSize, double learningRate, double decay) {
+DQNModel* DQNModelCreate(World *w) {
     DQNModel *m = malloc(sizeof(struct s_rl_model));
 
-    m->batchSize = batchSize;
-    m->q_network = initNetwork(batchSize);
-    m->target_network = initNetwork(batchSize);
-    m->memory = initReplayBuffer();
     m->config = defaultConfig();
+    m->q_network = initNetwork(m->config.batch_size);
+    m->target_network = initNetwork(m->config.batch_size);
+    m->memory = initReplayBuffer();
     m->env = initEnv(w, m->config.max_steps);
     m->step_count = 0;
-    m->learningRate = learningRate;
-    m->decay = decay;
-    m->networks_update_freq = update_freq;
 
-    m->batch_inputs = malloc(m->batchSize * NB_STATES * sizeof(double));
-    m->batch_next_inputs = malloc(m->batchSize * NB_STATES * sizeof(double));
-    m->batch_expected_outputs = malloc(m->batchSize * NB_ACTION * sizeof(double));
+    m->batch_inputs = malloc(m->config.batch_size * NB_STATES * sizeof(double));
+    m->batch_next_inputs = malloc(m->config.batch_size * NB_STATES * sizeof(double));
+    m->batch_expected_outputs = malloc(m->config.batch_size * NB_ACTION * sizeof(double));
 
     return m;
 };
@@ -302,25 +307,25 @@ void getRandomBatch(ReplayBuffer *r, Transition *batch, int batchSize) {
  * à n'apprendre que de l'action qu'il a réellement vécue, sans toucher au reste (les autres poids).
 */
 void updateNetwork(DQNModel *m) {
-    Transition batch[m->batchSize];
-    getRandomBatch(m->memory, batch, m->batchSize); // On commence par récupérer un batch de données passées
+    Transition batch[m->config.batch_size];
+    getRandomBatch(m->memory, batch, m->config.batch_size); // On commence par récupérer un batch de données passées
 
     // On prend un batch complet du ReplayBuffer pour entraîner le réseau
     #pragma omp parallel for
-    for (int i = 0; i < m->batchSize; ++i) {
+    for (int i = 0; i < m->config.batch_size; ++i) {
         // On sauvegarde les inputs !
         memcpy(&m->batch_inputs[i * NB_STATES], batch[i].state, NB_STATES * sizeof(double));
         memcpy(&m->batch_next_inputs[i * NB_STATES], batch[i].next_state, NB_STATES * sizeof(double));
     }
 
     // Première prédiction nous donne l'évaluation COURANTE (q_network) des valeurs des actions dans l'ancien état S
-    double *all_current_q = nnForwardPropagation(m->q_network, m->batch_inputs, m->batchSize);
+    double *all_current_q = nnForwardPropagation(m->q_network, m->batch_inputs, m->config.batch_size);
     // Deuxième prédiction sur S' (l'ancien état suivant) avec le Target Network pour inclure les estimations futures
-    double *all_next_q =  nnForwardPropagation(m->target_network, m->batch_next_inputs, m->batchSize);
+    double *all_next_q =  nnForwardPropagation(m->target_network, m->batch_next_inputs, m->config.batch_size);
 
     // On construit expectedOutput
     #pragma omp parallel for
-    for (int i = 0; i < m->batchSize; ++i) {
+    for (int i = 0; i < m->config.batch_size; ++i) {
         double *current_q = &all_current_q[i * NB_ACTION]; // On récupère l'estimation courante
 
         // On copie ces valeurs dans notre tableau d'expected_output. De ce fait, les actions non choisies n'impacteront pas les poids
@@ -347,7 +352,10 @@ void updateNetwork(DQNModel *m) {
     }
 
     // On entraîne maintenant le réseau sur le batch
-    networkTrain(m->q_network, m->batch_inputs, m->batch_expected_outputs, m->batchSize, m->learningRate, 1, m->batchSize, m->decay);
+    networkTrain(
+        m->q_network, m->batch_inputs, m->batch_expected_outputs,
+        m->config.batch_size, m->config.learning_rate, 1, m->config.batch_size, m->config.decay
+    );
 }
 
 
@@ -355,7 +363,7 @@ void updateNetwork(DQNModel *m) {
  * Algorithme d'entraînement.
  * 
 */
-void DeepQLearning(DQNModel *m, int start_epoch) {
+void DeepQLearning(DQNModel *m, int start_epoch, int seed) {
     double next_state[NB_STATES];
     double reward;
     int is_terminal;
@@ -389,12 +397,12 @@ void DeepQLearning(DQNModel *m, int start_epoch) {
             memcpy(env->current_state, next_state, NB_STATES * sizeof(double));
 
             // On met à jour le réseau
-            if (m->memory->size > m->batchSize) {
+            if (m->memory->size > m->config.batch_size) {
                 updateNetwork(m);
             }
 
             // On met à jour le clone (target_network)
-            if (global_step_count > 0 && global_step_count % m->networks_update_freq == 0) {
+            if (global_step_count > 0 && global_step_count % m->config.update_freq == 0) {
                 networkCopyWeights(m->target_network, m->q_network);
             }
 
@@ -408,7 +416,7 @@ void DeepQLearning(DQNModel *m, int start_epoch) {
 
         if ((epoch + 1) % 50 == 0) {
             printf(">>> Sauvegarde automatique (Epoch %d) ! <<<\n", epoch + 1);
-            modelSave(m, epoch + 1);
+            modelSave(m, epoch + 1, seed);
         }
     }
 }

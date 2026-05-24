@@ -69,11 +69,6 @@ typedef struct s_rl_model {
     Env *env;                       // Environnement
     ReplayBuffer *memory;           // Mémoire pour l'Experience Replay
     Config config;                  // Config avec hyperparamètres
-
-    int batchSize;                  // Taille des batchs pour les réseaux de neurones
-    double learningRate;            // Pour l'entraînement du réseau de neurone
-    double decay;                   // Decay pour le learning rate du réseau de neurone
-    int networks_update_freq;       // Fréquence de synchronisation des deux réseaux (ex: 1000 steps)
     int step_count;                 // Compteur pour savoir quand synchroniser
     char *path;                     // Chemin de sauvegarde
 
@@ -84,9 +79,9 @@ typedef struct s_rl_model {
 } DQNModel;
 
 
-void DeepQLearning(DQNModel *m, int start_epoch);
+void DeepQLearning(DQNModel *m, int start_epoch, int seed);
 
-DQNModel* DQNModelCreate(World *w, int update_freq, int batchSize, double learningRate, double decay);
+DQNModel* DQNModelCreate(World *w);
 
 void DQNModelDelete(DQNModel **m);
 
@@ -98,7 +93,7 @@ void DQNModelSetPath(DQNModel *m, char *path);
 
 int predict(DQNModel *m, double *state, double *out_q_value);
 
-void modelSave(DQNModel *m, int epoch);
-int modelLoad(DQNModel *m);
+void modelSave(DQNModel *m, int epoch, int seed);
+int modelLoad(DQNModel *m, int *start_epoch, int *seed);
 
 #endif

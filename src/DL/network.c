@@ -143,18 +143,18 @@ static int nnGetPredictedClass(double *outputs, int numClasses) {
 }
 
 
-static int nnGetCorrectPredictions(double *predictions, double *expectedOutputs, int batchSize, int numClasses) {
-    int correct = 0;
-    for (int i = 0; i < batchSize; i++) {
-        int predClass = nnGetPredictedClass(&predictions[i * numClasses], numClasses);
-        int expectedClass = nnGetPredictedClass(&expectedOutputs[i * numClasses], numClasses);
+// static int nnGetCorrectPredictions(double *predictions, double *expectedOutputs, int batchSize, int numClasses) {
+//     int correct = 0;
+//     for (int i = 0; i < batchSize; i++) {
+//         int predClass = nnGetPredictedClass(&predictions[i * numClasses], numClasses);
+//         int expectedClass = nnGetPredictedClass(&expectedOutputs[i * numClasses], numClasses);
 
-        if (predClass == expectedClass) {
-            correct++;
-        }
-    }
-    return correct;
-}
+//         if (predClass == expectedClass) {
+//             correct++;
+//         }
+//     }
+//     return correct;
+// }
 
 
 static void nnGradientDescent(NeuralNetwork *nn, double *trainInputs, double *expectedOutputs,

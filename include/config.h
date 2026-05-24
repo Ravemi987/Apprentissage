@@ -16,17 +16,13 @@ struct s_rl_config {
     double epsilon_decay;   // Plus le réseau apprend, moins on a besoin de choisir une action au hasard
     int epochs;             // Nombre d'epochs max pour le Deep-Q-Learning (tous les combien on reset l'environnement)
     int max_steps;          // Nombre de steps par epoch
+    int update_freq;        // Fréquence de synchronisation des réseaux de neurones
+    int batch_size;         // Taille des batchs pour les réseaux de neurones
+    double learning_rate;   // Learning Rate du réseau de neurones
+    double decay;           // Decay appliqué au learning rate du réseau de neurones;
 };
 
 Config defaultConfig(void);
-
-void configSetGamma(Config *cfg, float v);
-
-void configSetEpsilon(Config *cfg, float v);
-
-void configSetEpochs(Config *cfg, int v);
-
-void configSetSteps(Config *cfg, int v);
 
 void epsilonDecay(Config *cfg);
 

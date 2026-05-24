@@ -29,24 +29,15 @@ int main() {
     printf("     DEMARRAGE DU DRONE EN MODE EVALUATION        \n");
     printf("==================================================\n");
 
-    // 4. Création de l'agent
-    // On met un batchSize de 1 ici car on fait uniquement de l'inférence (pas de train)
-    DQNModel *ai = DQNModelCreate(&w, 1000, 1, 0.0, 0.0);
+    // Création de l'agent
+    DQNModel *ai = DQNModelCreate(&w);
     
-    // 5. Chargement du cerveau entraîné
+    // Chargement du modèle
     printf("Chargement du modèle : %s...\n", model_path);
     networkLoad(ai->q_network, model_path);
-
-    // 6. Config de test : EPSILON A DEUX ZEROS (0.0)
-    // On force l'intelligence pure, aucune action au hasard n'est tolérée
     Config *cfg = DQNModelGetConfig(ai);
     cfg->epsilon = 0.0;
-    cfg->epsilon_min = 0.0;
-    cfg->max_steps = 5000; // Durée max du vol de démonstration
-
-    printf("Prêt pour le décollage ! Mode 100%% Exploitation.\n");
-    printf("Exportation en direct vers : %s\n", json_path);
-    printf("--------------------------------------------------\n");
+    cfg->max_steps = 5000;
 
     Env *env = ai->env;
     double next_state[NB_STATES];
