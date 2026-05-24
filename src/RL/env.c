@@ -1,5 +1,6 @@
 #include "env.h"
 #include <stdlib.h>
+#include <generation.h>
 
 
 /* Fonction utilitaire pour limiter une valeur entre un min et un max (Hard Clip) */
@@ -293,71 +294,15 @@ void resetEnv(Env *env, int current_epoch) {
 
     if (current_epoch < 200) {
         // Mode Fixe
-        for (int i = 0; i < w->numUsers; i++) {
-            w->users[i].x = env->spawn_users_x[i];
-            w->users[i].y = env->spawn_users_y[i];
-        }
-        for (int i = 0; i < w->numObstacles; i++) {
-            w->obstacles[i].x = env->spawn_obs_x[i];
-            w->obstacles[i].y = env->spawn_obs_y[i];
-        }
+        majWorld(&w, NO_RAND);
         
-    } else if (current_epoch < 500) {
+    } else if (current_epoch < 500 && current_epoch % 30 == 0) {
         // Mode Bruit
-        double max_noise = 6.0;
-        for (int i = 0; i < w->numUsers; i++) {
-            double noise_x = (((double)rand() / (double)RAND_MAX) * 2.0 - 1.0) * max_noise;
-            double noise_y = (((double)rand() / (double)RAND_MAX) * 2.0 - 1.0) * max_noise;
-            w->users[i].x = clamp(env->spawn_users_x[i] + noise_x, 10.0, w->width - 10.0);
-            w->users[i].y = clamp(env->spawn_users_y[i] + noise_y, 10.0, w->height - 10.0);
-        }
-        for (int i = 0; i < w->numObstacles; i++) {
-            double noise_x = (((double)rand() / (double)RAND_MAX) * 2.0 - 1.0) * max_noise;
-            double noise_y = (((double)rand() / (double)RAND_MAX) * 2.0 - 1.0) * max_noise;
-            w->obstacles[i].x = clamp(env->spawn_obs_x[i] + noise_x, 20.0, w->width - 20.0);
-            w->obstacles[i].y = clamp(env->spawn_obs_y[i] + noise_y, 20.0, w->height - 20.0);
-        }
+        majWorld(&w, LOW_RAND);
         
-    } else {
+    } else if (current_epoch % 30 == 0) {
         // Mode Aléatoire Total 
-        for (int i = 0; i < w->numUsers; i++) {
-            w->users[i].x = 10.0 + ((double)rand() / (double)RAND_MAX) * (w->width - 20.0);
-            w->users[i].y = 10.0 + ((double)rand() / (double)RAND_MAX) * (w->height - 20.0);
-        }
-        
-        for (int i = 0; i < w->numObstacles; i++) {
-            double obs_x, obs_y;
-            int valid_placement;
-            
-            do {
-                valid_placement = 1; // On part du principe que c'est bon
-                
-                obs_x = 20.0 + ((double)rand() / (double)RAND_MAX) * (w->width - 40.0);
-                obs_y = 20.0 + ((double)rand() / (double)RAND_MAX) * (w->height - 40.0);
-                
-                // SÉCURITÉ DRONE : L'obstacle doit être loin du spawn du drone
-                double dist_to_drone = sqrt(pow(obs_x - env->spawn_drone_x, 2) + pow(obs_y - env->spawn_drone_y, 2));
-                if (dist_to_drone < 25.0) {
-                    valid_placement = 0;
-                }
-                
-                //CORRECTION MAJEURE (SÉCURITÉ HUMAINE) : L'obstacle ne doit pas écraser un utilisateur
-                // On laisse une marge confortable (Rayon de l'arbre + SAFETY_RADIUS + marge de manoeuvre)
-                for (int u = 0; u < w->numUsers; u++) {
-                    double dist_to_user = sqrt(pow(obs_x - w->users[u].x, 2) + pow(obs_y - w->users[u].y, 2));
-                    double min_clearance = w->obstacles[i].radius + SAFETY_RADIUS + 5.0; 
-                    
-                    if (dist_to_user < min_clearance) {
-                        valid_placement = 0; // Invalide, on rejette cette position
-                        break; 
-                    }
-                }
-                
-            } while (!valid_placement); // On boucle tant qu'on n'a pas un emplacement 100% sain
-            
-            w->obstacles[i].x = obs_x;
-            w->obstacles[i].y = obs_y;
-        }
+        majWorld(&w, TOTAL_RAND);
     }
 
     getStateVector(env, env->current_state);

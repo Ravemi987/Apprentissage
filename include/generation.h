@@ -34,9 +34,8 @@ typedef enum {
  * On fait de gros changements (deplacement des structures entre les cases) si current_epoch > 500
  * @param world Le monde a modifier
  * @param type_maj_w La manière de mettre a jour le monde
- * @param seed La seed pour l'aleatoire (-1 si seed aleatoires)
  */
-void majWorld(World *w, Type_maj_w maj, int seed);
+void majWorld(World *w, Type_maj_w maj);
 
 
 #endif

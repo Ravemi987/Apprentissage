@@ -366,7 +366,9 @@ double computeRSSI(Drone *d, User *u) {
 
 /* Exporte l'état du monde dans un fichier JSON pour l'interface Web */
 void exportStateToJSON(World *w, const char *filepath) {
-    FILE *f = fopen(filepath, "w");
+    char temp_path[256];
+    snprintf(temp_path, sizeof(temp_path), "%s.tmp", filepath);
+    FILE *f = fopen(temp_path, "w");
     if (f == NULL) return;
 
     fprintf(f, "{\n");
@@ -395,4 +397,6 @@ void exportStateToJSON(World *w, const char *filepath) {
 
     fprintf(f, "}\n");
     fclose(f);
+
+    rename(temp_path, filepath);
 }
