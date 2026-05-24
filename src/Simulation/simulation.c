@@ -15,6 +15,7 @@ Drone createDrone(double x, double y, double z) {
     // Met tout à 0
     memset(&d, 0, sizeof(Drone));
     d.x = x; d.y = y; d.z = z;
+    d.battery_remaining = 0;
     
     // Initialisation des cibles (Hover par défaut)
     d.target_thrust = M * G; 
