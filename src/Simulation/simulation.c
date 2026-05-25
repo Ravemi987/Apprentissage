@@ -23,9 +23,9 @@ Drone createDrone(double x, double y, double z) {
     d.target_yaw = 0.0;
 
     // Initialisation des PID
-    d.pid_roll  = (PIDController){ .kp = 1.5, .ki = 0.0, .kd = 0.8, .integral = 0, .prev_error = 0 };
-    d.pid_pitch = (PIDController){ .kp = 1.5, .ki = 0.0, .kd = 0.8, .integral = 0, .prev_error = 0 };
-    d.pid_yaw   = (PIDController){ .kp = 1.0, .ki = 0.0, .kd = 0.2, .integral = 0, .prev_error = 0 };
+    d.pid_roll  = (PIDController){ .kp = 4.0, .ki = 0.0, .kd = 1.5, .integral = 0, .prev_error = 0 };
+    d.pid_pitch = (PIDController){ .kp = 4.0, .ki = 0.0, .kd = 1.5, .integral = 0, .prev_error = 0 };
+    d.pid_yaw   = (PIDController){ .kp = 2.0, .ki = 0.0, .kd = 0.4, .integral = 0, .prev_error = 0 };
     
     return d;
 }
@@ -173,14 +173,8 @@ void handleCommand(Drone *d, int action) {
 
     // Mode par défaut (autonome)
     double thrust_boost = 4.0;
-    double yaw_increment = 0.05;
+    double yaw_increment = 0.02;
     double current_angle_limit = ANGLE_LIMIT;
-
-    if (d->is_autonomous_mode == 0) {
-        thrust_boost = 12.0;
-        yaw_increment = 0.02;
-        current_angle_limit = 0.50;
-    }
 
     if (action == ENGINE_UP)            d->target_thrust = (M * G) + thrust_boost; // Monter
     if (action == ENGINE_DOWN)          d->target_thrust = (M * G) - thrust_boost; // Descendre
@@ -201,15 +195,16 @@ void handleCommand(Drone *d, int action) {
 
 
 double updatePID(PIDController *pid, double target, double current, double dt) {
-    double error = target - current;
+    double error = wrapAngle(target - current);
     
     // Proportional
     double p_out = pid->kp * error;
     
-    // Integral (avec une limite anti-windup conseillée)
+    // Integral (avec une limite anti-windup)
     pid->integral += error * dt;
+    pid->integral = clamp(pid->integral, -5.0, 5.0);
     double i_out = pid->ki * pid->integral;
-    
+        
     // Derivative (basée sur le changement de la mesure pour éviter le kick)
     double derivative = (current - pid->prev_error) / dt;
     double d_out = - pid->kd * derivative;
@@ -233,9 +228,9 @@ void applyControllerAndMixer(Drone *d, double dt) {
 
     // On transforme la commande virtuelle U en vitesse de rotation des 4 moteurs (w2)
     double w2[4];
-    w2[0] = U[0]/(4*B) + U[2]/(2*B) - U[3]/(4*D); // Moteur Avant
+    w2[0] = U[0]/(4*B) - U[2]/(2*B) - U[3]/(4*D); // Moteur Avant
     w2[1] = U[0]/(4*B) - U[1]/(2*B) + U[3]/(4*D); // Moteur Gauche
-    w2[2] = U[0]/(4*B) - U[2]/(2*B) - U[3]/(4*D); // Moteur Arrière
+    w2[2] = U[0]/(4*B) + U[2]/(2*B) - U[3]/(4*D); // Moteur Arrière
     w2[3] = U[0]/(4*B) + U[1]/(2*B) + U[3]/(4*D); // Moteur Droite
 
     // Enregistre les vitesses dans le drone
@@ -251,14 +246,14 @@ void computeCommandVector(World *w, double *U) {
 
     U[0] = B * (pow(d.omega[0], 2) + pow(d.omega[1], 2) + pow(d.omega[2], 2) + pow(d.omega[3], 2)); // Poussee totale
     U[1] = L * B * (- pow(d.omega[1], 2) + pow(d.omega[3], 2)); // Moment de Roll
-    U[2] = L * B * (pow(d.omega[0], 2) - pow(d.omega[2], 2)); // Moment de Pitch
+    U[2] = L * B * (- pow(d.omega[0], 2) + pow(d.omega[2], 2)); // Moment de Pitch
     U[3] = D * (- pow(d.omega[0], 2) + pow(d.omega[1], 2) - pow(d.omega[2], 2) + pow(d.omega[3], 2)); // Moment de Yaw
 }
 
 
 void computeAngularAccelerations(World *w, double *U) {
     Drone *d = w->drone;
-    double damping = 0.1;
+    double damping = 2.5;
     
     // Dérivées des angles à partir des vitesses angulaires
     d->phi_dot = d->p + d->q * sin(d->phi) * tan(d->theta) + d->r * cos(d->phi) * tan(d->theta);

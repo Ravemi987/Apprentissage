@@ -1,3 +1,4 @@
+#include "utils.h"
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -89,4 +90,12 @@ double linear(double *X, double *W, double b, int size) {
     }
 
     return r + b;
+}
+
+double clamp(double val, double min_val, double max_val) {
+    if (isnan(val) || isinf(val)) return 0.0;
+    
+    if (val < min_val) return min_val;
+    if (val > max_val) return max_val;
+    return val;
 }

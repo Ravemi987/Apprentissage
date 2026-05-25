@@ -23,8 +23,8 @@ int main() {
     srand(initial_seed);
 
     double drone_start_x = 100.0;
-    double drone_start_y = 50.0;
-    double drone_start_z = 10.0;
+    double drone_start_y = 100.0;
+    double drone_start_z = 20.0;
 
 
     Drone d = createDrone(drone_start_x,drone_start_y, drone_start_z);

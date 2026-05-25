@@ -290,13 +290,6 @@ void getRandomBatch(ReplayBuffer *r, Transition *batch, int batchSize) {
         
         // On l'injecte dans le batch
         batch[count] = r->buffer[selected_idx];
-
-        // Échange instantané pour exclure cet index des prochains tirages du batch
-        current_pool_size--;
-    
-        Transition temp = r->buffer[selected_idx];
-        r->buffer[selected_idx] = r->buffer[current_pool_size];
-        r->buffer[current_pool_size] = temp;
     }
 }
 

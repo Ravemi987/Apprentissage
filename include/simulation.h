@@ -23,14 +23,14 @@
 #define RHO 1.225 // Densité de l'air en kg/m3
 #define RADIUS 0.0635 // Rayon des hélices en m
 #define MATH_PI 3.14159265358979323846 // PI
-#define ANGLE_LIMIT 0.25 // Limite pour éviter les singularités de gimbal lock
 #define PATH_LOSS_EXPONENT 2.0   // Milieu Hertzien
 #define SIGNAL_BASE_POWER -30.0  // -30.0 dBm : Puissance à 1m
 
 // Paramètres qu'on peut modifier pour changer le comportement de l'IA
+#define ANGLE_LIMIT 0.25 // Limite pour éviter les singularités de gimbal lock
 #define MAX_ROT 2.0 // Vitesse de rotation maximale en rad/s
-#define MAX_VELOCITY 10.0
-#define DRAG_COEFF 0.8  // Coefficient de traînée aérodynamique
+#define MAX_VELOCITY 15.0
+#define DRAG_COEFF 1.0  // Coefficient de traînée aérodynamique
 #define SAFETY_RADIUS 4.0   // Distance de sécurité avec les objets
 
 #define NB_ACTION 9
@@ -116,5 +116,7 @@ double computeRSSI(Drone* d, User* u);
 void exportStateToJSON(World *w, const char *filepath);
 
 int collisionWithUser(World *w);
+
+int collisionWithObstacle(World *w);
 
 #endif

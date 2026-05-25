@@ -18,7 +18,7 @@ int main() {
     srand(time(NULL));
 
     // Initialisation des structutres
-    Drone d = createDrone(100.0, 50.0, 10.0);
+    Drone d = createDrone(100.0, 100.0, 20.0);
 
     int width = 200.0;
     int height = 200.0;

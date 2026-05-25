@@ -7,12 +7,12 @@ Config defaultConfig(void) {
         .gamma = 0.99,
         .epsilon = 1.0,
         .epsilon_min = 0.0,
-        .epsilon_decay = 0.001,
+        .epsilon_decay = 0.004,
         .epochs = 1500,
         .max_steps = 3000,
         .update_freq = 1500,
         .batch_size = 128,
-        .learning_rate = 5e-4,
+        .learning_rate = 1e-4,
         .decay = 0.0
     };
 }

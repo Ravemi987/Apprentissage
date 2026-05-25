@@ -41,5 +41,7 @@ void fillUsersGrid(Env *env, double *state_out);
 
 void captureObstacles(Env *env, double *state_out);
 
+void getSafeDroneSpawn(World *w, double *out_x, double *out_y, double *out_z);
+
 
 #endif

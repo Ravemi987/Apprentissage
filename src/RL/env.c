@@ -1,16 +1,7 @@
 #include "env.h"
 #include <stdlib.h>
 #include <generation.h>
-
-
-/* Fonction utilitaire pour limiter une valeur entre un min et un max (Hard Clip) */
-double clamp(double val, double min_val, double max_val) {
-    if (isnan(val) || isinf(val)) return 0.0;
-    
-    if (val < min_val) return min_val;
-    if (val > max_val) return max_val;
-    return val;
-}
+#include "utils.h"
 
 
 /* Calcule la pénalité liée aux obstacles (Arbres, bâtiments) */
@@ -26,7 +17,7 @@ static double getObstaclePenalty(World *w, Drone *d) {
             
             if (dist_h < safety_zone) {
                 double penetration = (safety_zone - dist_h) / SAFETY_RADIUS;
-                penalty -= clamp(penetration, 0.0, 1.0) * 1.0; 
+                penalty -= clamp(penetration, 0.0, 1.0) * 2.0; 
             }
         }
     }
@@ -45,7 +36,7 @@ static double getHumanProximityPenalty(World *w, Drone *d) {
             
             if (dist_h < SAFETY_RADIUS) {
                 double penetration = (SAFETY_RADIUS - dist_h) / SAFETY_RADIUS;
-                penalty -= clamp(penetration, 0.0, 1.0) * 1.0;
+                penalty -= clamp(penetration, 0.0, 1.0) * 2.0;
             }
         }
     }
@@ -53,61 +44,153 @@ static double getHumanProximityPenalty(World *w, Drone *d) {
 }
 
 
-/* Calcule la moyenne normalisée du signal pour tous les utilisateurs (0.0 à 1.0) */
-static double getAverageSignalNorm(World *w, Drone *d, int *out_connected_count) {
-    if (w->numUsers <= 0) return 0.0;
-    
-    double total_rssi_norm = 0.0;
+/* Calcule à la fois le pire signal, le signal moyen et le nombre d'utilisateurs connectés */
+static double getSignalMetrics(World *w, Drone *d, int *out_connected_count, double *out_average_norm) {
+    if (w->numUsers <= 0) {
+        *out_connected_count = 0;
+        *out_average_norm = 0.0;
+        return 0.0;
+    }
+
+    double min_norm = 1.0; // On commence au maximum possible pour trouver le pire
+    double total_norm = 0.0;
     *out_connected_count = 0;
 
     for (int i = 0; i < w->numUsers; i++) {
+        // Un seul calcul de RSSI par utilisateur !
         double rssi = computeRSSI(d, &w->users[i]);
         if (isnan(rssi) || isinf(rssi)) rssi = -100.0;
 
         // Normalisation (Pire : -100dBm -> 0.0 | Parfait : -30dBm -> 1.0)
         double norm = clamp((rssi + 100.0) / 70.0, 0.0, 1.0);
-        total_rssi_norm += norm;
         
-        if (rssi > SIGNAL_BASE_POWER) (*out_connected_count)++;
+        // Accumulation pour la moyenne
+        total_norm += norm;
+
+        // Sauvegarde du pire signal (Min)
+        if (norm < min_norm) {
+            min_norm = norm;
+        }
+
+        // Compteur de connexion globale
+        if (rssi > -55) {
+            (*out_connected_count)++;
+        }
     }
-    
-    return total_rssi_norm / w->numUsers;
+
+    // On extrait la moyenne via le pointeur de sortie
+    *out_average_norm = total_norm / w->numUsers;
+
+    // On retourne le min de manière classique
+    return min_norm;
 }
 
+ 
+// /* Fonction Principale de Récompense */
+// /* Fonction Principale de Récompense Calibrée */
+// double getReward(Env *env) {
+//     World *w = env->physical_world;
+//     Drone *d = w->drone;
+    
+//     int connected = 0;
+//     double average_signal_norm = 0.0;
 
-/* Fonction Principale de Récompense */
+//     // Récupération des métriques (Assure-toi d'avoir mis : if (rssi >= -80.0) dans getSignalMetrics)
+//     double min_signal_norm = getSignalMetrics(w, d, &connected, &average_signal_norm);
+    
+//     double reward_mix = (min_signal_norm * 0.8) + (average_signal_norm * 0.2);
+//     double reward = reward_mix * 2.0; 
+
+//     // Ne donne pas de bonus si le drone est en train de raser le sol ou de frôler un obstacle
+//     if (d->z >= 4.0 && !collisionWithUser(w) && !collisionWithObstacle(w)) {
+//         // Le signal minimal est exploitable (Évite de se focaliser sur un seul user au détriment des autres)
+//         if (min_signal_norm > 0.5) reward += 0.3;
+//         // Tout le monde est connecté
+//         if (w->numUsers > 0 && connected == w->numUsers) reward += 0.5;
+//     }
+
+//     // Pénalités environnementales
+//     reward += getObstaclePenalty(w, d); 
+//     reward += getHumanProximityPenalty(w, d); 
+
+//     if (d->z < 4.0) {
+//         double penetration = (4.0 - d->z) / 4.0;
+//         reward -= clamp(penetration, 0.0, 1.0) * 1.5;
+//     }
+
+//     // Pénalité des limites de la carte
+//     double edge_margin = 10.0;
+//     if (d->x < edge_margin)  reward -= (edge_margin - d->x) / edge_margin * 0.5;
+//     if (d->x > w->width - edge_margin)  reward -= (d->x - (w->width - edge_margin)) / edge_margin * 0.5;
+//     if (d->y < edge_margin)  reward -= (edge_margin - d->y) / edge_margin * 0.5;
+//     if (d->y > w->height - edge_margin) reward -= (d->y - (w->height - edge_margin)) / edge_margin * 0.5;
+
+//     // Pénalités cinématiques
+//     double speed_squared = pow(d->x_dot, 2) + pow(d->y_dot, 2) + pow(d->z_dot, 2);
+//     reward -= speed_squared * 0.001; 
+    
+//     double angular_speed = pow(d->p, 2) + pow(d->q, 2) + pow(d->r, 2);
+//     reward -= angular_speed * 0.0015;
+
+//     return reward;
+// }
+
+/* Fonction Principale de Récompense - VERSION MATHÉMATIQUEMENT PARFAITE */
 double getReward(Env *env) {
     World *w = env->physical_world;
     Drone *d = w->drone;
     
-    // Pénalité de temps (orce l'agent à être efficace)
-    double reward = -0.05; 
-
-    // Gestion du Signal (Absolu + Delta)
     int connected = 0;
+    double average_signal_norm = 0.0;
+    double min_signal_norm = getSignalMetrics(w, d, &connected, &average_signal_norm);
+    
+    // 1. COMPOSANTE PRINCIPALE (Entre 0.0 et 1.0)
+    // 50% min (équilibre l'essaim pour ne délaisser personne) / 50% moyenne (couverture globale)
+    double signal_score = (min_signal_norm * 0.5) + (average_signal_norm * 0.5);
+    
+    // 2. MULTIPLICATEUR DE SÉCURITÉ (Entre 0.0 et 1.0)
+    // Remplace les soustractions. Garantit que la récompense ne sera JAMAIS négative.
+    double safety_multiplier = 1.0;
+    
+    // 2.a - Altitude (Baisse la récompense s'il vole sous les 4m)
+    if (d->z < 3.5) {
+        safety_multiplier *= clamp(d->z / 4.0, 0.0, 1.0);
+    }
+    
+    // 2.b - Limites de carte (Baisse la récompense s'il s'approche à moins de 10m des bords)
+    double margin = 10.0;
+    if (d->x < margin) safety_multiplier *= clamp(d->x / margin, 0.0, 1.0);
+    else if (d->x > w->width - margin) safety_multiplier *= clamp((w->width - d->x) / margin, 0.0, 1.0);
+    
+    if (d->y < margin) safety_multiplier *= clamp(d->y / margin, 0.0, 1.0);
+    else if (d->y > w->height - margin) safety_multiplier *= clamp((w->height - d->y) / margin, 0.0, 1.0);
 
-    // Attention, garder garder la valeur moyenne et surtout pasfaire une différence !
-    double current_signal_norm = getAverageSignalNorm(w, d, &connected);
+    // 2.c - Humains et Obstacles (Conversion de tes pénalités en multiplicateur)
+    // Tes fonctions renvoient entre 0.0 et -2.0. On prend la valeur absolue.
+    double obs_pen = fabs(getObstaclePenalty(w, d)); 
+    double hum_pen = fabs(getHumanProximityPenalty(w, d));
+    double env_multiplier = clamp(1.0 - ((obs_pen + hum_pen) / 2.0), 0.0, 1.0);
+    safety_multiplier *= env_multiplier;
 
-    if (w->numUsers > 0) {
-        // Si le signal est parfait (1.0), il gagne +1.0, ce qui annule la pénalité de temps (-0.05) et encourage le hovering.
-        reward += current_signal_norm * 1.0;
-        
-        if (connected == w->numUsers) reward += 0.05; // Bonus de réussite
+    // 3. CALCUL DE LA RÉCOMPENSE DE BASE (Strictement >= 0)
+    // Si safety_multiplier = 0 (danger de mort), reward = 0
+    double reward = (signal_score * 2.0) * safety_multiplier;
+
+    // 4. BONUS CONDITIONS (Seulement s'il est parfaitement en sécurité : safety > 0.9)
+    if (safety_multiplier > 0.9) {
+        if (min_signal_norm > 0.4) reward += 0.3;
+        if (w->numUsers > 0 && connected == w->numUsers) reward += 0.5;
     }
 
-    // Application des pénalités environnementales
-    reward += getObstaclePenalty(w, d);
-    reward += getHumanProximityPenalty(w, d);
+    // TAXE CINÉMATIQUE (Multiplicateur pour éviter les valeurs négatives)
+    // Punit les tremblements et les rotations abusives
+    double speed_sq = pow(d->x_dot, 2) + pow(d->y_dot, 2) + pow(d->z_dot, 2);
+    double ang_sq = pow(d->p, 2) + pow(d->q, 2) + pow(d->r, 2);
+    double kinetic_penalty = clamp((speed_sq + ang_sq) * 0.0005, 0.0, 0.5);
+    
+    reward = reward * (1.0 - kinetic_penalty);
 
-    // Pénalité linéaire globale 
-    double speed_squared = pow(d->x_dot, 2) + pow(d->y_dot, 2) + pow(d->z_dot, 2);
-    reward -= speed_squared * 0.003; 
-
-    // Pénalité angulaire modérée (Pour diminuer le Yaw, très sensible avec un impact invisible, sans interdire de tourner)
-    double angular_speed = pow(d->p, 2) + pow(d->q, 2) + pow(d->r, 2);
-    reward -= angular_speed * 0.001;
-
+    // RÉSULTAT: La récompense est mathématiquement bloquée dans l'intervalle [0.0 , ~2.8].
     return reward;
 }
 
@@ -131,18 +214,20 @@ void getStateVector(Env *env, double *state_out) {
     //Troisième étape : variables physiques du drone (comme avec une target A -> B)
     int drone_offset = GRID_SIZE * GRID_SIZE + (MAX_CLOSEST_OBSTACLES * 3);
 
-    state_out[drone_offset + 0] = clamp(d->x / w->width, 0.0, 1.0);
-    state_out[drone_offset + 1] = clamp(d->y / w->height, 0.0, 1.0);
-    state_out[drone_offset + 2] = clamp(d->z / w->depth, 0.0, 1.0);
-    state_out[drone_offset + 3] = clamp(d->x_dot / MAX_VELOCITY, -1.0, 1.0);
-    state_out[drone_offset + 4] = clamp(d->y_dot / MAX_VELOCITY, -1.0, 1.0);
-    state_out[drone_offset + 5] = clamp(d->z_dot / MAX_VELOCITY, -1.0, 1.0);
-    state_out[drone_offset + 6] = clamp(d->phi / ANGLE_LIMIT, -1.0, 1.0);
-    state_out[drone_offset + 7] = clamp(d->theta / ANGLE_LIMIT, -1.0, 1.0);
-    state_out[drone_offset + 8] = clamp(d->psi / MATH_PI, -1.0, 1.0);
-    state_out[drone_offset + 9] = clamp(d->p / MAX_ROT, -1.0, 1.0);
-    state_out[drone_offset + 10] = clamp(d->q / MAX_ROT, -1.0, 1.0);
-    state_out[drone_offset + 11] = clamp(d->r / MAX_ROT, -1.0, 1.0);
+    // "Distance de sécurité sol" : 1.0 si le drone est en sécurité,  et tend vers 0.0 si le drone approche dangereusement du sol (Z < 4m)
+    double ground_clearance = d->z / SAFETY_RADIUS;
+    state_out[drone_offset + 0] = clamp(ground_clearance, 0.0, 1.0);
+
+    state_out[drone_offset + 1] = clamp(d->z / w->depth, 0.0, 1.0);
+    state_out[drone_offset + 2] = clamp(d->x_dot / MAX_VELOCITY, -1.0, 1.0);
+    state_out[drone_offset + 3] = clamp(d->y_dot / MAX_VELOCITY, -1.0, 1.0);
+    state_out[drone_offset + 4] = clamp(d->z_dot / MAX_VELOCITY, -1.0, 1.0);
+    state_out[drone_offset + 5] = clamp(d->phi / ANGLE_LIMIT, -1.0, 1.0);
+    state_out[drone_offset + 6] = clamp(d->theta / ANGLE_LIMIT, -1.0, 1.0);
+    state_out[drone_offset + 7] = clamp(d->psi / MATH_PI, -1.0, 1.0);
+    state_out[drone_offset + 8] = clamp(d->p / MAX_ROT, -1.0, 1.0);
+    state_out[drone_offset + 9] = clamp(d->q / MAX_ROT, -1.0, 1.0);
+    state_out[drone_offset + 10] = clamp(d->r / MAX_ROT, -1.0, 1.0);
 }
 
 
@@ -166,7 +251,8 @@ void envStep(Env *env, double *next_state, double *reward, int *is_terminal, int
 
     double final_reward = accumulated_reward / FRAME_SKIP; 
 
-    if (crashed) { final_reward -= 100.0; }
+    if (crashed) { final_reward -= 5.0; }
+    if (action_idx == ENGINE_YAW_LEFT || action_idx == ENGINE_YAW_RIGHT) { final_reward -= 0.2; }
     *reward = final_reward; 
     *is_terminal = crashed;
 }
@@ -208,27 +294,27 @@ Env *initEnv(World *w, int max_steps) {
 }
 
 
-/* Réinitialise l'environnement en se basant UNIQUEMENT sur les paramètres capturés */
+/* Réinitialise l'environnement de manière dynamique et sécurisée */
 void resetEnv(Env *env, int current_epoch) {
     World *w = env->physical_world;
 
-    // Réinitialisation du drone à sa vraie position d'origine
-    *(w->drone) = createDrone(env->spawn_drone_x, env->spawn_drone_y, env->spawn_drone_z);
-    env->current_reward = 0.0;
-    env->is_terminal = 0;
-
-    if (current_epoch < 200) {
-        // Mode Fixe
+    // On met d'abord à jour la topologie du monde (sinon les obstacles bougent après le spawn)
+    if (current_epoch < 400) {
         majWorld(w, NO_RAND);
-        
-    } else if (current_epoch < 500 && current_epoch % 30 == 0) {
-        // Mode Bruit
+    } else if (current_epoch < 800 && current_epoch % 30 == 0) {
         majWorld(w, LOW_RAND);
-        
     } else if (current_epoch % 30 == 0) {
-        // Mode Aléatoire Total 
         majWorld(w, TOTAL_RAND);
     }
+
+    // On cherche des coordonnées sûres pour le drone
+    double spawn_x, spawn_y, spawn_z;
+    getSafeDroneSpawn(w, &spawn_x, &spawn_y, &spawn_z);
+
+    *(w->drone) = createDrone(spawn_x, spawn_y, spawn_z);
+    
+    env->current_reward = 0.0;
+    env->is_terminal = 0;
 
     getStateVector(env, env->current_state);
 }
