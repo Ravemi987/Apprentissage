@@ -114,16 +114,16 @@ double getReward(Env *env) {
     
     double average_signal_norm = 0.0;
     double min_signal_norm = getSignalMetrics(w, d, &average_signal_norm);
+    
     double signal_score = (min_signal_norm * 0.5) + (average_signal_norm * 0.5);
     
-    double base_reward = 0.1 + (signal_score * 3.0); 
+    double base_reward = -0.05 + (signal_score * 3.0); 
     
     double obs_pen = fabs(getObstaclePenalty(w, d)); 
     double hum_pen = fabs(getHumanProximityPenalty(w, d));
     
     double danger_zone = clamp(5.0 - d->z, 0.0, 5.0); 
-
-    double altitude_pen = pow(danger_zone, 2) * 0.2;
+    double altitude_pen = pow(danger_zone, 2) * 0.2; 
 
     double bounds_pen = 0.0;
     double margin = 10.0;
@@ -138,7 +138,6 @@ double getReward(Env *env) {
 
     return clamp(total_reward, -5.0, 5.0);
 }
-
 
 /*
  * Cette fonction définit de quelles informations l'IA a besoin pour savoir ce que doit faire
