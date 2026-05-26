@@ -182,7 +182,12 @@ void handleCommand(Drone *d, int action) {
     if (action == ENGINE_ROLL_RIGHT)    d->target_roll = current_angle_limit;    // Roll droite
 
     // Augmentation de la pousée de base 
-    double base_thrust = (M * G) / (cos(d->target_pitch) * cos(d->target_roll));
+    double pitch_comp = clamp(cos(d->target_pitch), 0.5, 1.0); // Le cosinus ne descendra jamais sous 0.5
+    double roll_comp = clamp(cos(d->target_roll), 0.5, 1.0);
+    double base_thrust = (M * G) / (pitch_comp * roll_comp);
+    double max_safe_thrust = M * G * 1.5;
+    base_thrust = clamp(base_thrust, 0.0, max_safe_thrust);
+
     d->target_thrust = base_thrust;
 
     if (action == ENGINE_UP)            d->target_thrust = base_thrust + thrust_boost; // Monter
@@ -406,7 +411,7 @@ void exportStateToJSON(World *w, const char *filepath) {
         fprintf(f, "    {\"x\": %.2f, \"y\": %.2f, \"z\": %.2f}", w->users[i].x, w->users[i].y, w->users[i].z);
         if (i < w->numUsers - 1) fprintf(f, ",\n");
     }
-    fprintf(f, "  ],\n"); // Ajout de la virgule ici !
+    fprintf(f, "  ],\n");
 
     // Obstacles
     fprintf(f, "  \"obstacles\": [\n");
