@@ -6,7 +6,6 @@ def plot_learning_curve(filename):
     rewards = []
     
     # Regex pour capturer l'Epoch et le Total Reward, peu importe les espaces
-    # Il cherche : "Epoch [chiffres]/[chiffres] | Steps: [chiffres] | Total Reward: [nombres à virgule/négatifs]"
     pattern = re.compile(r"Epoch\s+(\d+)/\d+\s+\|\s+Steps:\s+\d+\s+\|\s+Total Reward:\s+([-]?\d+\.\d+)")
     
     try:
@@ -37,10 +36,10 @@ def plot_learning_curve(filename):
     # Tracé du graphique
     plt.figure(figsize=(12, 6))
     
-    # Courbe brute (transparente pour voir le bruit)
+    # Courbe brute (bleue transparente)
     plt.plot(epochs, rewards, alpha=0.3, color='dodgerblue', label='Récompense brute (bruit)')
     
-    # Courbe lissée (en rouge et plus épaisse pour voir la tendance)
+    # Courbe lissée (rouge épaisse)
     plt.plot(epochs, smoothed_rewards, color='red', linewidth=2.5, label=f'Moyenne mobile (fenêtre={window_size})')
     
     plt.title("Courbe d'apprentissage de l'IA (Deep Q-Learning)", fontsize=14, fontweight='bold')
@@ -50,9 +49,14 @@ def plot_learning_curve(filename):
     plt.grid(True, linestyle='--', alpha=0.7)
     
     plt.tight_layout()
+    
+    # --- AJOUT : SAUVEGARDE AUTOMATIQUE EN PNG ---
+    output_png = "courbe_apprentissage.png"
+    plt.savefig(output_png, dpi=300) # dpi=300 pour une haute qualité d'image
+    print(f"Graphique sauvegardé avec succès dans : {output_png}")
+    # ----------------------------------------------
+    
     plt.show()
 
-# Utilisation : 
-# Copie tes logs dans un fichier texte (ex: "logs.txt") et lance la fonction
 if __name__ == "__main__":
     plot_learning_curve('files/results.txt')
