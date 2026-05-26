@@ -9,7 +9,7 @@ Config defaultConfig(void) {
         .epsilon_min = 0.0,
         .epsilon_decay = 0.004,
         .epochs = 1500,
-        .max_steps = 3000,
+        .max_steps = 2000,
         .update_freq = 1500,
         .batch_size = 128,
         .learning_rate = 1e-4,

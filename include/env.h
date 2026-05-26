@@ -9,7 +9,7 @@
 #define GRID_SIZE 4
 #define MAX_CLOSEST_OBSTACLES 3
 #define NB_STATES (GRID_SIZE * GRID_SIZE + MAX_CLOSEST_OBSTACLES * 3 + 11)
-#define FRAME_SKIP 6   // Frame Skipping pour laisser à la physique le temps de calculer les mouvements de l'IA
+#define FRAME_SKIP 10   // Frame Skipping pour laisser à la physique le temps de calculer les mouvements de l'IA
 
 
 /*

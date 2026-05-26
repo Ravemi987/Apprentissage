@@ -86,7 +86,7 @@ void applyCommand(Drone *d, DQNModel *ai, Env *env, long ticks, int current_manu
         // Mode IA : itération cadencée par le FRAME_SKIP
         if (ticks % FRAME_SKIP == 0) {
             getStateVector(env, env->current_state);
-            *current_ai_action = predict(ai, env->current_state, NULL);
+            *current_ai_action = predict(ai, env->current_state);
             handleCommand(d, *current_ai_action);
         }
     }

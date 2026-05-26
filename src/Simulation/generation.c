@@ -22,9 +22,14 @@ void fillUsersGrid(Env *env, double *state_out) {
         double dx = w->users[i].x - d->x;
         double dy = w->users[i].y - d->y;
 
+        double cos_yaw = cos(-d->psi);
+        double sin_yaw = sin(-d->psi);
+        double local_x = dx * cos_yaw - dy * sin_yaw;
+        double local_y = dx * sin_yaw + dy * cos_yaw;
+
         // On décale pour que (0,0) soit le coin en haut à gauche de notre radar
-        double shifted_x = dx + radar_range;
-        double shifted_y = dy + radar_range;
+        double shifted_x = local_x + radar_range;
+        double shifted_y = local_y + radar_range;
 
         // Si l'utilisateur est à portée du radar
         if (shifted_x >= 0 && shifted_x < radar_range * 2.0 &&
@@ -146,31 +151,14 @@ void placeObstaclesOnGrid(Obstacle3D *obstacles, int *plan, int numObstacles, do
 }
 
 
-void placeUsersOnGrid(User *users, int *plan, Drone *drone, int numUsers, double width, double height) {
+void placeUsersOnGrid(User *users, int *plan, int numUsers, double width, double height) {
     for (int indice = 0; indice < numUsers; indice++) {
         int nonPlac = 1;
         while(nonPlac == 1) {
             int x, y;
-            
-            // Le tout premier utilisateur (indice 0) apparaît toujours proche du drone pour être sur le radar
-            if (indice == 0) {
-                // On génère un décalage aléatoire entre -15m et +15m autour du spawn du drone
-                int offset_x = (int)(((float)rand() / (float)RAND_MAX) * 30.0f) - 15;
-                int offset_y = (int)(((float)rand() / (float)RAND_MAX) * 30.0f) - 15;
-                
-                x = (int)(drone->x) + offset_x;
-                y = (int)(drone->y) + offset_y;
-                
-                // Sécurité pour ne pas sortir des limites de la carte
-                if (x < 0) x = 0; 
-                if (x >= (int)width) x = (int)width - 1;
-                if (y < 0) y = 0; 
-                if (y >= (int)height) y = (int)height - 1;
-            } else {
-                // Les autres utilisateurs (indice > 0) sont placés n'importe où sur la carte
-                x = (int)((float)rand() / (float)RAND_MAX * width);
-                y = (int)((float)rand() / (float)RAND_MAX * height);
-            }
+        
+            x = (int)((float)rand() / (float)RAND_MAX * width);
+            y = (int)((float)rand() / (float)RAND_MAX * height);
 
             // On place l'élément s'il n'y a pas d'obstacle
             if (isEmpty(x, y, 1, plan, (int)height, (int)width) == 1) {
@@ -236,7 +224,7 @@ World creationWorld(Drone *drone, int numUsers, int numObstacles, double width, 
     placeObstaclesOnGrid(obstacles, plan, numObstacles, width, height, depth);
 
     // Iteration pour placer les personnes
-    placeUsersOnGrid(users, plan, drone, numUsers, width, height);
+    placeUsersOnGrid(users, plan, numUsers, width, height);
 
     World w = {
         .drone = drone,

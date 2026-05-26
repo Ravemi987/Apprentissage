@@ -40,7 +40,7 @@ static ReplayBuffer *initReplayBuffer() {
  * Format du checkpoint (.ckpt) :
  *   Ligne 1       : epsilon courant
  *   Ligne 2       : taille et head du replay buffer (size head)
- *   Lignes 3..N   : transitions (state | action reward terminal td_error | next_state)
+ *   Lignes 3..N   : transitions (state | action reward terminal | next_state)
  *   Reste         : poids du réseau (format networkSave existant)
  */
 void modelSave(DQNModel *m, int epoch, int seed) {
@@ -74,7 +74,7 @@ void modelSave(DQNModel *m, int epoch, int seed) {
 
         for (int s = 0; s < NB_STATES; s++)
             fprintf(f, "%.8f ", t->state[s]);
-        fprintf(f, "| %d %.8f %d %.8f | ", t->action, t->reward, t->next_state_terminal, t->td_error);
+        fprintf(f, "| %d %.8f %d | ", t->action, t->reward, t->next_state_terminal);
         for (int s = 0; s < NB_STATES; s++)
             fprintf(f, "%.8f ", t->next_state[s]);
         fprintf(f, "\n");
@@ -148,7 +148,7 @@ int modelLoad(DQNModel *m, int *start_epoch, int *seed) {
             if (fscanf(f, "%lf", &t->state[s]) != -1){};
         
         int action_val = 0;
-        if (fscanf(f, " | %d %lf %d %lf | ", &action_val, &t->reward, &t->next_state_terminal, &t->td_error) != -1) {};
+        if (fscanf(f, " | %d %lf %d | ", &action_val, &t->reward, &t->next_state_terminal) != -1) {};
         t->action = (EngineAction)action_val;
         
         for (int s = 0; s < NB_STATES; s++)
@@ -235,21 +235,16 @@ void DQNModelSetPath(DQNModel *m, char *path) {
  * - Décide si on explore (valeur aléatoire dépendant d'epsilon) ou si on exploite (prédiction avec le réseau)
  * - Dans ce cas, on fait une forward pass et un argmax pour récupérer la meilleure action
  */
-int predict(DQNModel *m, double *state, double *out_q_value) {
+int predict(DQNModel *m, double *state) {
     float r = (float)rand() / (float)RAND_MAX;
     int action;
-    double *q_values;
 
     if (r < m->config.epsilon) {
         action =  rand() % NB_ACTION;
-        q_values = nnForwardPropagation(m->q_network, state, 1);
-        if (out_q_value) *out_q_value = q_values[action];
     } else {
         double *q_values = nnForwardPropagation(m->q_network, state, 1);
         action = arrayMaxIndex(q_values, NB_ACTION);
-        if (out_q_value) *out_q_value = q_values[action];
     }
-
     return action;
 }
 
@@ -278,18 +273,9 @@ void saveTransition(ReplayBuffer *b, Transition t) {
 void getRandomBatch(ReplayBuffer *r, Transition *batch, int batchSize) {
     if (r->size < batchSize) return;
 
-    int current_pool_size = r->size;
-
     for (int count = 0; count < batchSize; count++) {
-        // Tirage de deux candidats (PER statique)
-        int idx1 = rand() % current_pool_size;
-        int idx2 = rand() % current_pool_size;
-
-        // On choisit le plus intéressant pour l'entraînement
-        int selected_idx = (r->buffer[idx1].td_error > r->buffer[idx2].td_error) ? idx1 : idx2;
-        
-        // On l'injecte dans le batch
-        batch[count] = r->buffer[selected_idx];
+        int random_idx = rand() % r->size;
+        batch[count] = r->buffer[random_idx];
     }
 }
 
@@ -370,19 +356,16 @@ void DeepQLearning(DQNModel *m, int start_epoch, int seed) {
 
         for (m->step_count = 0; m->step_count < env->max_steps; ++(m->step_count)) {
             global_step_count++;
-            double current_q_prediction = 0.0; // On utilise le PER
 
             // On choisit l'action à prendre (action réelle du drone)
-            int action = predict(m, env->current_state, &current_q_prediction);
+            int action = predict(m, env->current_state);
 
             // Transition
             envStep(env, next_state, &reward, &is_terminal, action);
             total_epoch_reward += reward;
-            double td_error_initial = fabs(reward - current_q_prediction);
 
             // On sauvegarde : état de départ, action prise, récompense obtenue, état d'arrivée
             Transition copy;
-            copy.td_error = td_error_initial;
             copyTransition(&copy, env->current_state, action, reward, next_state, is_terminal);
             saveTransition(m->memory, copy);
 
@@ -407,7 +390,7 @@ void DeepQLearning(DQNModel *m, int start_epoch, int seed) {
         printf("Epoch %4d/%d | Steps: %4d | Total Reward: %7.2f | Epsilon: %.3f\n", 
                epoch + 1, m->config.epochs, m->step_count, total_epoch_reward, m->config.epsilon);
 
-        if ((epoch + 1) % 50 == 0) {
+        if ((epoch + 1) % 20 == 0) {
             printf(">>> Sauvegarde automatique (Epoch %d) ! <<<\n", epoch + 1);
             modelSave(m, epoch + 1, seed);
         }

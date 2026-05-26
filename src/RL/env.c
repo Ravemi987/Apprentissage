@@ -45,16 +45,14 @@ static double getHumanProximityPenalty(World *w, Drone *d) {
 
 
 /* Calcule à la fois le pire signal, le signal moyen et le nombre d'utilisateurs connectés */
-static double getSignalMetrics(World *w, Drone *d, int *out_connected_count, double *out_average_norm) {
+static double getSignalMetrics(World *w, Drone *d, double *out_average_norm) {
     if (w->numUsers <= 0) {
-        *out_connected_count = 0;
         *out_average_norm = 0.0;
         return 0.0;
     }
 
     double min_norm = 1.0; // On commence au maximum possible pour trouver le pire
     double total_norm = 0.0;
-    *out_connected_count = 0;
 
     for (int i = 0; i < w->numUsers; i++) {
         // Un seul calcul de RSSI par utilisateur !
@@ -71,11 +69,6 @@ static double getSignalMetrics(World *w, Drone *d, int *out_connected_count, dou
         if (norm < min_norm) {
             min_norm = norm;
         }
-
-        // Compteur de connexion globale
-        if (rssi > -55) {
-            (*out_connected_count)++;
-        }
     }
 
     // On extrait la moyenne via le pointeur de sortie
@@ -85,112 +78,165 @@ static double getSignalMetrics(World *w, Drone *d, int *out_connected_count, dou
     return min_norm;
 }
 
- 
-// /* Fonction Principale de Récompense */
-// /* Fonction Principale de Récompense Calibrée */
+
+
+/* Fonction Principale de Récompense - VERSION MATHÉMATIQUEMENT PARFAITE */
 // double getReward(Env *env) {
 //     World *w = env->physical_world;
 //     Drone *d = w->drone;
     
 //     int connected = 0;
 //     double average_signal_norm = 0.0;
-
-//     // Récupération des métriques (Assure-toi d'avoir mis : if (rssi >= -80.0) dans getSignalMetrics)
 //     double min_signal_norm = getSignalMetrics(w, d, &connected, &average_signal_norm);
     
-//     double reward_mix = (min_signal_norm * 0.8) + (average_signal_norm * 0.2);
-//     double reward = reward_mix * 2.0; 
-
-//     // Ne donne pas de bonus si le drone est en train de raser le sol ou de frôler un obstacle
-//     if (d->z >= 4.0 && !collisionWithUser(w) && !collisionWithObstacle(w)) {
-//         // Le signal minimal est exploitable (Évite de se focaliser sur un seul user au détriment des autres)
-//         if (min_signal_norm > 0.5) reward += 0.3;
-//         // Tout le monde est connecté
-//         if (w->numUsers > 0 && connected == w->numUsers) reward += 0.5;
-//     }
-
-//     // Pénalités environnementales
-//     reward += getObstaclePenalty(w, d); 
-//     reward += getHumanProximityPenalty(w, d); 
-
-//     if (d->z < 4.0) {
-//         double penetration = (4.0 - d->z) / 4.0;
-//         reward -= clamp(penetration, 0.0, 1.0) * 1.5;
-//     }
-
-//     // Pénalité des limites de la carte
-//     double edge_margin = 10.0;
-//     if (d->x < edge_margin)  reward -= (edge_margin - d->x) / edge_margin * 0.5;
-//     if (d->x > w->width - edge_margin)  reward -= (d->x - (w->width - edge_margin)) / edge_margin * 0.5;
-//     if (d->y < edge_margin)  reward -= (edge_margin - d->y) / edge_margin * 0.5;
-//     if (d->y > w->height - edge_margin) reward -= (d->y - (w->height - edge_margin)) / edge_margin * 0.5;
-
-//     // Pénalités cinématiques
-//     double speed_squared = pow(d->x_dot, 2) + pow(d->y_dot, 2) + pow(d->z_dot, 2);
-//     reward -= speed_squared * 0.001; 
+//     // 1. COMPOSANTE PRINCIPALE (Entre 0.0 et 1.0)
+//     // 50% min (équilibre l'essaim pour ne délaisser personne) / 50% moyenne (couverture globale)
+//     double signal_score = (min_signal_norm * 0.5) + (average_signal_norm * 0.5);
     
-//     double angular_speed = pow(d->p, 2) + pow(d->q, 2) + pow(d->r, 2);
-//     reward -= angular_speed * 0.0015;
+//     // 2. MULTIPLICATEUR DE SÉCURITÉ (Entre 0.0 et 1.0)
+//     // Remplace les soustractions. Garantit que la récompense ne sera JAMAIS négative.
+//     double safety_multiplier = 1.0;
+    
+//     // 2.a - Altitude (Baisse la récompense s'il vole sous les 4m)
+//     if (d->z < 3.5) {
+//         safety_multiplier *= clamp(d->z / 4.0, 0.0, 1.0);
+//     }
+    
+//     // 2.b - Limites de carte (Baisse la récompense s'il s'approche à moins de 10m des bords)
+//     double margin = 10.0;
+//     if (d->x < margin) safety_multiplier *= clamp(d->x / margin, 0.0, 1.0);
+//     else if (d->x > w->width - margin) safety_multiplier *= clamp((w->width - d->x) / margin, 0.0, 1.0);
+    
+//     if (d->y < margin) safety_multiplier *= clamp(d->y / margin, 0.0, 1.0);
+//     else if (d->y > w->height - margin) safety_multiplier *= clamp((w->height - d->y) / margin, 0.0, 1.0);
+
+//     // 2.c - Humains et Obstacles (Conversion de tes pénalités en multiplicateur)
+//     // Tes fonctions renvoient entre 0.0 et -2.0. On prend la valeur absolue.
+//     double obs_pen = fabs(getObstaclePenalty(w, d)); 
+//     double hum_pen = fabs(getHumanProximityPenalty(w, d));
+//     double env_multiplier = clamp(1.0 - ((obs_pen + hum_pen) / 2.0), 0.0, 1.0);
+//     safety_multiplier *= env_multiplier;
+
+//     // 3. CALCUL DE LA RÉCOMPENSE DE BASE (Strictement >= 0)
+//     // Si safety_multiplier = 0 (danger de mort), reward = 0
+//     double reward = (signal_score * 3.0) * safety_multiplier;
+
+//     // 4. BONUS CONDITIONS (Seulement s'il est parfaitement en sécurité : safety > 0.9)
+//     if (safety_multiplier > 0.9) {
+//         reward += min_signal_norm * 1.5;
+//     }
+
+//     // TAXE CINÉMATIQUE (Multiplicateur pour éviter les valeurs négatives)
+//     // Punit les tremblements et les rotations abusives
+//     double speed_sq = pow(d->x_dot, 2) + pow(d->y_dot, 2) + pow(d->z_dot, 2);
+//     double ang_sq = pow(d->p, 2) + pow(d->q, 2) + pow(d->r, 2);
+//     double kinetic_penalty = clamp((speed_sq + ang_sq) * 0.0005, 0.0, 0.5);
+    
+//     reward = reward * (1.0 - kinetic_penalty);
+
+//     // RÉSULTAT: La récompense est mathématiquement bloquée dans l'intervalle [0.0 , ~2.8].
+//     return reward;
+// }
+
+/* Fonction Principale de Récompense - LE PUITS DE GRAVITÉ */
+// double getReward(Env *env) {
+//     World *w = env->physical_world;
+//     Drone *d = w->drone;
+    
+//     double average_signal_norm = 0.0;
+//     double min_signal_norm = getSignalMetrics(w, d, &average_signal_norm);
+    
+//     double signal_score = (min_signal_norm * 0.5) + (average_signal_norm * 0.5);
+//     double safety_multiplier = 1.0;
+    
+//     if (d->z < 3.5) safety_multiplier *= clamp(d->z / 4.0, 0.0, 1.0);
+//     else if (d->z > 25.0) safety_multiplier *= clamp((35.0 - d->z) / 10.0, 0.0, 1.0);
+//     double height_penalty = 0.0;
+//     if (d->z > 40.0) {
+//         height_penalty = -(d->z - 40.0) * 0.2; 
+//     }
+
+//     double margin = 10.0;
+//     if (d->x < margin) safety_multiplier *= clamp(d->x / margin, 0.0, 1.0);
+//     else if (d->x > w->width - margin) safety_multiplier *= clamp((w->width - d->x) / margin, 0.0, 1.0);
+    
+//     if (d->y < margin) safety_multiplier *= clamp(d->y / margin, 0.0, 1.0);
+//     else if (d->y > w->height - margin) safety_multiplier *= clamp((w->height - d->y) / margin, 0.0, 1.0);
+
+//     double obs_pen = fabs(getObstaclePenalty(w, d)); 
+//     double hum_pen = fabs(getHumanProximityPenalty(w, d));
+//     double env_multiplier = clamp(1.0 - ((obs_pen + hum_pen) / 2.0), 0.0, 1.0);
+//     safety_multiplier *= env_multiplier;
+
+//     // ---------------------------------------------------------
+//     // L'AIMANT CONTINU : La récompense augmente de manière agressive
+//     double reward = (pow(signal_score, 2) * 5.0) * safety_multiplier;
+
+//     if (safety_multiplier > 0.9) {
+//         reward += (min_signal_norm * 1.5) + (pow(min_signal_norm, 2) * 1.5); 
+//     }
+//     // ---------------------------------------------------------
+
+//     // TAXE CINÉMATIQUE (Divisée par 10 pour autoriser le voyage)
+//     double speed_sq = pow(d->x_dot, 2) + pow(d->y_dot, 2) + pow(d->z_dot, 2);
+//     double ang_sq = pow(d->p, 2) + pow(d->q, 2) + pow(d->r, 2);
+    
+//     // Le multiplicateur passe de 0.001 à 0.0001, et le plafond de 50% à 10% (0.1)
+//     double kinetic_penalty = clamp((speed_sq + ang_sq) * 0.0001, 0.0, 0.1); 
+    
+//     reward = reward * (1.0 - kinetic_penalty);
+//     reward += height_penalty;
 
 //     return reward;
 // }
 
-/* Fonction Principale de Récompense - VERSION MATHÉMATIQUEMENT PARFAITE */
 double getReward(Env *env) {
     World *w = env->physical_world;
     Drone *d = w->drone;
     
-    int connected = 0;
     double average_signal_norm = 0.0;
-    double min_signal_norm = getSignalMetrics(w, d, &connected, &average_signal_norm);
+    double min_signal_norm = getSignalMetrics(w, d, &average_signal_norm);
     
-    // 1. COMPOSANTE PRINCIPALE (Entre 0.0 et 1.0)
-    // 50% min (équilibre l'essaim pour ne délaisser personne) / 50% moyenne (couverture globale)
+    // 1. SIGNAL CONTINU (Ta logique au carré était excellente)
     double signal_score = (min_signal_norm * 0.5) + (average_signal_norm * 0.5);
     
-    // 2. MULTIPLICATEUR DE SÉCURITÉ (Entre 0.0 et 1.0)
-    // Remplace les soustractions. Garantit que la récompense ne sera JAMAIS négative.
+    // On garantit une base de +0.5 juste pour survivre.
+    // Le signal ajoute jusqu'à +5.0 de manière exponentielle (incite fortement à s'approcher du centre)
+    double reward = 0.5 + (pow(signal_score, 2) * 5.0); 
+    
+    // 2. MULTIPLICATEURS DE SÉCURITÉ (Toujours entre 0.0 et 1.0)
+    // Au lieu de "if", on utilise des clamps qui agissent comme des champs de force lisses.
     double safety_multiplier = 1.0;
     
-    // 2.a - Altitude (Baisse la récompense s'il vole sous les 4m)
-    if (d->z < 3.5) {
-        safety_multiplier *= clamp(d->z / 4.0, 0.0, 1.0);
-    }
-    
-    // 2.b - Limites de carte (Baisse la récompense s'il s'approche à moins de 10m des bords)
+    // Marge des murs (10m). Si d->x = 5m, le ratio est 0.5 -> la récompense est divisée par 2.
     double margin = 10.0;
-    if (d->x < margin) safety_multiplier *= clamp(d->x / margin, 0.0, 1.0);
-    else if (d->x > w->width - margin) safety_multiplier *= clamp((w->width - d->x) / margin, 0.0, 1.0);
-    
-    if (d->y < margin) safety_multiplier *= clamp(d->y / margin, 0.0, 1.0);
-    else if (d->y > w->height - margin) safety_multiplier *= clamp((w->height - d->y) / margin, 0.0, 1.0);
+    safety_multiplier *= clamp(d->x / margin, 0.0, 1.0);
+    safety_multiplier *= clamp((w->width - d->x) / margin, 0.0, 1.0);
+    safety_multiplier *= clamp(d->y / margin, 0.0, 1.0);
+    safety_multiplier *= clamp((w->height - d->y) / margin, 0.0, 1.0);
 
-    // 2.c - Humains et Obstacles (Conversion de tes pénalités en multiplicateur)
-    // Tes fonctions renvoient entre 0.0 et -2.0. On prend la valeur absolue.
+    // Altitude (champ de force au sol et au plafond)
+    safety_multiplier *= clamp((d->z - 2.0) / 3.0, 0.0, 1.0); // Baisse de 5m à 2m
+    safety_multiplier *= clamp((35.0 - d->z) / 10.0, 0.0, 1.0); // Baisse de 25m à 35m
+
+    // Obstacles et Humains (Tes fonctions de pénalité converties en multiplicateurs fluides)
     double obs_pen = fabs(getObstaclePenalty(w, d)); 
     double hum_pen = fabs(getHumanProximityPenalty(w, d));
-    double env_multiplier = clamp(1.0 - ((obs_pen + hum_pen) / 2.0), 0.0, 1.0);
+    // Plus le danger est grand, plus le multiplicateur tend vers 0.1
+    double env_multiplier = clamp(1.0 - ((obs_pen + hum_pen) / 2.0), 0.1, 1.0); 
     safety_multiplier *= env_multiplier;
 
-    // 3. CALCUL DE LA RÉCOMPENSE DE BASE (Strictement >= 0)
-    // Si safety_multiplier = 0 (danger de mort), reward = 0
-    double reward = (signal_score * 2.0) * safety_multiplier;
+    // 3. APPLICATION
+    reward *= safety_multiplier;
 
-    // 4. BONUS CONDITIONS (Seulement s'il est parfaitement en sécurité : safety > 0.9)
-    if (safety_multiplier > 0.9) {
-        if (min_signal_norm > 0.4) reward += 0.3;
-        if (w->numUsers > 0 && connected == w->numUsers) reward += 0.5;
-    }
-
-    // TAXE CINÉMATIQUE (Multiplicateur pour éviter les valeurs négatives)
-    // Punit les tremblements et les rotations abusives
+    // 4. TAXE CINÉMATIQUE (Légère, sous forme de multiplicateur continu)
+    // Punit doucement les rotations excessives et la vitesse délirante
     double speed_sq = pow(d->x_dot, 2) + pow(d->y_dot, 2) + pow(d->z_dot, 2);
     double ang_sq = pow(d->p, 2) + pow(d->q, 2) + pow(d->r, 2);
-    double kinetic_penalty = clamp((speed_sq + ang_sq) * 0.0005, 0.0, 0.5);
     
-    reward = reward * (1.0 - kinetic_penalty);
+    double kinetic_multiplier = clamp(1.0 - ((speed_sq + ang_sq) * 0.0001), 0.5, 1.0);
+    reward *= kinetic_multiplier;
 
-    // RÉSULTAT: La récompense est mathématiquement bloquée dans l'intervalle [0.0 , ~2.8].
     return reward;
 }
 
@@ -251,8 +297,9 @@ void envStep(Env *env, double *next_state, double *reward, int *is_terminal, int
 
     double final_reward = accumulated_reward / FRAME_SKIP; 
 
-    if (crashed) { final_reward -= 5.0; }
+    if (crashed) { final_reward -= 500.0; }
     if (action_idx == ENGINE_YAW_LEFT || action_idx == ENGINE_YAW_RIGHT) { final_reward -= 0.2; }
+
     *reward = final_reward; 
     *is_terminal = crashed;
 }

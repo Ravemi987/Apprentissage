@@ -9,7 +9,7 @@
 #include "network.h"
 #include "env.h"
 
-#define MEMORY_SIZE 25000
+#define MEMORY_SIZE 100000
 #define TARGET_CLIPING 100.0
 
 
@@ -32,7 +32,6 @@ typedef struct {
     double next_state[NB_STATES]; // Prochaine état dans lequel on se trouve
     int next_state_terminal;      // Est-ce que le prochain état est terminal (voir Env) ?
     int flag;                     // Utilisé pour savoir si une donnée est déjà tirée pour un batch (voir ReplayBuffer)
-    double td_error;              // Utilisé pour modifier les probabilités des tirages aléatoire (ReplayBuffer)
 } Transition;
 
 
@@ -91,7 +90,7 @@ Config* DQNModelGetConfig(DQNModel *m);
 
 void DQNModelSetPath(DQNModel *m, char *path);
 
-int predict(DQNModel *m, double *state, double *out_q_value);
+int predict(DQNModel *m, double *state);
 
 void modelSave(DQNModel *m, int epoch, int seed);
 int modelLoad(DQNModel *m, int *start_epoch, int *seed);
