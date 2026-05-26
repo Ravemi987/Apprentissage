@@ -5,7 +5,7 @@ const ctxTop = canvasTop.getContext('2d');
 
 // Dimensions physiques (Synchronisées avec ton C)
 const physSpanX = 200; // Axe X physique = Avancement (0 à 200)
-const physSpanY = 100; // Axe Y physique = Gauche/Droite (0 à 100)
+const physSpanY = 200; // Axe Y physique = Gauche/Droite (0 à 200) -> MAJ
 const physSpanZ = 100; // Axe Z physique = Altitude (0 à 100)
 const gridSpacing = 20;
 const trail = [];
@@ -13,8 +13,8 @@ const trail = [];
 /* --- MAGIE DU MAPPING (Correction de l'inversion) --- */
 
 // En physique : Y augmente vers la gauche. 
-// En visuel : On veut que 0 soit à gauche et 100 à droite.
-// Solution : Visuel_Y = 100 - Physique_Y
+// En visuel : On veut que 0 soit à gauche et 200 à droite.
+// Solution : Visuel_Y = 200 - Physique_Y
 function getVisualX(physY, canvas) { 
     let visualY = physSpanY - physY; 
     return (visualY / physSpanY) * canvas.width; 
@@ -41,7 +41,7 @@ function drawGridProfile() {
     ctxProfile.font = "11px 'Segoe UI'"; ctxProfile.fillStyle = "#bac2de";
     
     // Lignes verticales (Gauche/Droite visuel)
-    // On itère sur la dimension visuelle pour avoir 0 à gauche et max à droite
+    // S'adapte automatiquement grâce à physSpanY
     for (let v = 0; v <= physSpanY; v += gridSpacing) {
         let px = (v / physSpanY) * canvasProfile.width;
         ctxProfile.beginPath(); ctxProfile.moveTo(px, 0); ctxProfile.lineTo(px, canvasProfile.height); ctxProfile.stroke();
@@ -55,7 +55,11 @@ function drawGridProfile() {
     }
     ctxProfile.font = "bold 13px 'Segoe UI'"; ctxProfile.fillStyle = "#89b4fa";
     ctxProfile.fillText("Z (Altitude)", 15, 25);
-    ctxProfile.fillText("Y (Gauche/Droite)", canvasProfile.width - 120, canvasProfile.height - 15);
+    
+    // Aligné proprement au centre bas pour éviter les collisions avec les chiffres de la grille
+    ctxProfile.textAlign = "center";
+    ctxProfile.fillText("Y (Gauche/Droite)", canvasProfile.width / 2, canvasProfile.height - 25);
+    ctxProfile.textAlign = "left"; // Reset
 }
 
 function drawGridTop() {
@@ -76,7 +80,11 @@ function drawGridTop() {
     }
     ctxTop.font = "bold 13px 'Segoe UI'"; ctxTop.fillStyle = "#89b4fa";
     ctxTop.fillText("X (Avant/Arrière)", 15, 25);
-    ctxTop.fillText("Y (Gauche/Droite)", canvasTop.width - 120, canvasTop.height - 15);
+    
+    // Aligné proprement au centre bas également
+    ctxTop.textAlign = "center";
+    ctxTop.fillText("Y (Gauche/Droite)", canvasTop.width / 2, canvasTop.height - 25);
+    ctxTop.textAlign = "left"; // Reset
 }
 
 function drawViews(data) {
@@ -92,7 +100,69 @@ function drawViews(data) {
     drawGridProfile();
     drawGridTop();
 
-    // --- LIENS WIFI ---
+    // ==========================================
+    // 1. OBSTACLES & SCAN LiDAR
+    // ==========================================
+    if (data.obstacles) {
+        data.obstacles.forEach(obs => {
+            obs.distSq = Math.pow(data.drone.x - obs.x, 2) + Math.pow(data.drone.y - obs.y, 2) + Math.pow(data.drone.z - obs.z, 2);
+            obs.isClosest = false;
+        });
+
+        let closestObstacles = [...data.obstacles].sort((a, b) => a.distSq - b.distSq).slice(0, 3);
+        closestObstacles.forEach(obs => obs.isClosest = true);
+
+        const time = Date.now();
+        const blinkAlpha = 0.7 + 0.3 * Math.sin(time / 150); 
+
+        data.obstacles.forEach(obs => {
+            let cxTop = getVisualX(obs.y, canvasTop);
+            let cyTop = getVisualY(obs.x, canvasTop);
+            let visualRadius = (obs.radius / physSpanY) * canvasTop.width; // S'adapte au nouveau physSpanY
+            
+            let cxProf = getVisualX(obs.y, canvasProfile);
+            let bottomZ = getVisualZ(obs.z, canvasProfile);
+            let topZ = getVisualZ(obs.z + obs.height, canvasProfile);
+            let widthProf = (obs.radius * 2 / physSpanY) * canvasProfile.width; // S'adapte au nouveau physSpanY
+            let heightProf = bottomZ - topZ;
+
+            ctxTop.fillStyle = 'rgba(166, 227, 161, 0.15)'; 
+            ctxTop.strokeStyle = 'rgba(166, 227, 161, 0.4)';
+            ctxTop.lineWidth = 1;
+
+            ctxProfile.fillStyle = 'rgba(166, 227, 161, 0.15)';
+            ctxProfile.strokeStyle = 'rgba(166, 227, 161, 0.4)';
+            ctxProfile.lineWidth = 1;
+
+            if (obs.isClosest) {
+                ctxTop.strokeStyle = `rgba(249, 226, 175, ${blinkAlpha})`;
+                ctxTop.lineWidth = 2;
+                ctxTop.shadowColor = '#f9e2af';
+                ctxTop.shadowBlur = 15 * blinkAlpha;
+
+                ctxProfile.strokeStyle = `rgba(249, 226, 175, ${blinkAlpha})`;
+                ctxProfile.lineWidth = 2;
+                ctxProfile.shadowColor = '#f9e2af';
+                ctxProfile.shadowBlur = 15 * blinkAlpha;
+            }
+
+            ctxTop.beginPath();
+            ctxTop.arc(cxTop, cyTop, visualRadius, 0, Math.PI*2);
+            ctxTop.fill();
+            ctxTop.stroke();
+            ctxTop.shadowBlur = 0; 
+
+            ctxProfile.beginPath();
+            ctxProfile.rect(cxProf - widthProf/2, topZ, widthProf, heightProf);
+            ctxProfile.fill();
+            ctxProfile.stroke();
+            ctxProfile.shadowBlur = 0; 
+        });
+    }
+
+    // ==========================================
+    // 2. LIENS WIFI
+    // ==========================================
     data.users.forEach(user => {
         const dist3D = Math.sqrt(
             Math.pow(data.drone.x - user.x, 2) + 
@@ -114,7 +184,9 @@ function drawViews(data) {
         ctxProfile.setLineDash([]); ctxTop.setLineDash([]);
     });
 
-    // --- TRAÎNÉE DU DRONE ---
+    // ==========================================
+    // 3. TRAÎNÉE DU DRONE
+    // ==========================================
     ctxProfile.beginPath(); ctxTop.beginPath();
     for (let i = 0; i < trail.length; i++) {
         const p = trail[i];
@@ -128,41 +200,47 @@ function drawViews(data) {
     }
     ctxProfile.stroke(); ctxTop.stroke();
 
-    // --- UTILISATEURS ---
+    // ==========================================
+    // 4. UTILISATEURS (Piétons)
+    // ==========================================
     ctxProfile.fillStyle = '#fab387'; ctxTop.fillStyle = '#fab387';
     data.users.forEach(u => {
-        ctxProfile.beginPath(); ctxProfile.arc(getVisualX(u.y, canvasProfile), getVisualZ(u.z, canvasProfile), 7, 0, Math.PI*2); ctxProfile.fill();
-        ctxTop.beginPath(); ctxTop.arc(getVisualX(u.y, canvasTop), getVisualY(u.x, canvasTop), 7, 0, Math.PI*2); ctxTop.fill();
+        ctxProfile.beginPath(); ctxProfile.arc(getVisualX(u.y, canvasProfile), getVisualZ(u.z, canvasProfile), 6, 0, Math.PI*2); ctxProfile.fill();
+        ctxTop.beginPath(); ctxTop.arc(getVisualX(u.y, canvasTop), getVisualY(u.x, canvasTop), 6, 0, Math.PI*2); ctxTop.fill();
     });
 
-    // --- DRONE : VUE DE PROFIL ---
+    // ==========================================
+    // 5. DRONE 
+    // ==========================================
     ctxProfile.save();
     ctxProfile.translate(getVisualX(data.drone.y, canvasProfile), getVisualZ(data.drone.z, canvasProfile));
-    ctxProfile.rotate(data.drone.phi); // Incliné par le Roll
+    ctxProfile.rotate(data.drone.phi);
     ctxProfile.fillStyle = '#89dceb'; ctxProfile.fillRect(-20, -2, 40, 4); 
     ctxProfile.fillStyle = '#f38ba8'; ctxProfile.beginPath(); ctxProfile.arc(0, 0, 4, 0, Math.PI*2); ctxProfile.fill();
     ctxProfile.restore();
 
-    // --- DRONE : VUE DE DESSUS ---
     ctxTop.save();
     ctxTop.translate(getVisualX(data.drone.y, canvasTop), getVisualY(data.drone.x, canvasTop));
-    ctxTop.rotate(data.drone.psi); // Orienté par le Yaw
-    
-    // Bras latéraux
-    ctxTop.fillStyle = '#a6e3a1'; 
-    ctxTop.fillRect(-15, -2, 30, 4); 
-    // Bras central
-    ctxTop.fillStyle = '#89dceb'; 
-    ctxTop.fillRect(-2, -15, 4, 30); 
-    // Tête (pour voir où il regarde !)
-    ctxTop.fillStyle = '#f38ba8'; 
-    ctxTop.beginPath(); ctxTop.arc(0, -15, 4, 0, Math.PI*2); ctxTop.fill();
-    
-    // Centre
-    ctxTop.fillStyle = '#cdd6f4'; 
-    ctxTop.beginPath(); ctxTop.arc(0, 0, 5, 0, Math.PI*2); ctxTop.fill();
+    ctxTop.rotate(data.drone.psi);
+    ctxTop.fillStyle = '#a6e3a1'; ctxTop.fillRect(-15, -2, 30, 4); 
+    ctxTop.fillStyle = '#89dceb'; ctxTop.fillRect(-2, -15, 4, 30); 
+    ctxTop.fillStyle = '#f38ba8'; ctxTop.beginPath(); ctxTop.arc(0, -15, 4, 0, Math.PI*2); ctxTop.fill();
+    ctxTop.fillStyle = '#cdd6f4'; ctxTop.beginPath(); ctxTop.arc(0, 0, 5, 0, Math.PI*2); ctxTop.fill();
     ctxTop.restore();
 }
+
+document.getElementById('btnRestart').addEventListener('click', () => {
+    trail.length = 0; 
+
+    fetch('/api/launch-main', { method: 'POST' })
+        .then(response => {
+            if (!response.ok) {
+                alert("Erreur lors du lancement de la simulation.");
+            }
+        })
+        .catch(err => console.error("Impossible de joindre le serveur:", err));
+});
+
 
 setInterval(() => {
     fetch('state.json', { cache: 'no-store' })

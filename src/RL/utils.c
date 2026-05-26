@@ -1,3 +1,4 @@
+#include "utils.h"
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -16,8 +17,8 @@ float sum(float *a1, float *a2, int s) {
     return r;
 }
 
-float arrayMax(float *a, int n) {
-    float m = a[0];
+double arrayMax(double *a, int n) {
+    double m = a[0];
     for (int i = 1; i < n; ++i) {
         if (a[i] > m) m = a[i];
     }
@@ -32,8 +33,8 @@ double arrayMaxDouble(double *a, int n) {
     return m;
 }
 
-int arrayMaxIndex(float *a, int n) {
-    float m = a[0];
+int arrayMaxIndex(double *a, int n) {
+    double m = a[0];
     int index = 0;
     for (int i = 1; i < n; ++i) {
         if (a[i] > m) {
@@ -81,34 +82,6 @@ void printFloatMatrix(float *a, int nr, int nc) {
     }
 }
 
-int readMatricesFromFile(char *filename, float **T, float **R) {
-    FILE *f = fopen(filename, "r");
-    if (!f) return -1;
-
-    int nS, nA;
-    if (fscanf(f, "%d %d", &nS, &nA) != 2) {fclose(f); return -1;}
-
-    int tSize = nS * nA * nS;
-    int rSize = nS * nA;
-
-    *T = calloc(tSize, sizeof(float));
-    *R = calloc(rSize, sizeof(float));
-
-    if (*T == NULL || *R == NULL) {fclose(f); return -1;}
-
-    for (int i = 0; i < tSize; ++i) {
-        if (fscanf(f, "%f", &((*T)[i])) == 0) return -1;
-    }
-
-    for (int i = 0; i < rSize; ++i) {
-        if (fscanf(f, "%f", &((*R)[i])) == 0) return -1;
-    } 
-
-    fclose(f);
-
-    return 0;
-}
-
 double linear(double *X, double *W, double b, int size) {
     double r = 0;
 
@@ -117,4 +90,12 @@ double linear(double *X, double *W, double b, int size) {
     }
 
     return r + b;
+}
+
+double clamp(double val, double min_val, double max_val) {
+    if (isnan(val) || isinf(val)) return 0.0;
+    
+    if (val < min_val) return min_val;
+    if (val > max_val) return max_val;
+    return val;
 }

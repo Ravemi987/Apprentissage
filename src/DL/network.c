@@ -143,28 +143,12 @@ static int nnGetPredictedClass(double *outputs, int numClasses) {
 }
 
 
-static int nnGetCorrectPredictions(double *predictions, double *expectedOutputs, int batchSize, int numClasses) {
-    int correct = 0;
-    for (int i = 0; i < batchSize; i++) {
-        int predClass = nnGetPredictedClass(&predictions[i * numClasses], numClasses);
-        int expectedClass = nnGetPredictedClass(&expectedOutputs[i * numClasses], numClasses);
-
-        if (predClass == expectedClass) {
-            correct++;
-        }
-    }
-    return correct;
-}
-
-
 static void nnGradientDescent(NeuralNetwork *nn, double *trainInputs, double *expectedOutputs,
                     int rows, double learningRate, int batchSize) {
     int inputCols = layerGetFeaturesNumber(nn->layers[0]);
     int outputCols = layerGetNeuronsNumber(getLastLayer(nn));
 
     int batchsNumber = (int)ceil((double)rows / batchSize);
-    double totalLoss = 0.0;
-    int totalCorrect = 0;
 
     for (int batch = 0; batch < batchsNumber; batch++) {
         int start = batch * batchSize;
@@ -177,12 +161,8 @@ static void nnGradientDescent(NeuralNetwork *nn, double *trainInputs, double *ex
         
         nnBackPropagation(nn, outputsPtr, batchExpected, realBatchSize);
 
-        totalLoss += nn->lossFunction->globalLoss(outputsPtr, batchExpected, realBatchSize, outputCols) * realBatchSize;
-        totalCorrect += nnGetCorrectPredictions(outputsPtr, batchExpected, realBatchSize, outputCols); 
-
         nnUpdateAllWeights(nn, learningRate, realBatchSize);
     }
-    printf("Loss: %.6f - Accuracy: %.2f%%\n", totalLoss / rows, ((double)totalCorrect / rows) * 100.0);
 }
 
 
@@ -198,7 +178,7 @@ static double *oneHotEncode(double *expectedClasses, int numSamples, int numClas
 }
 
 
-void nnTrain(NeuralNetwork *nn, double *trainInputs, double *expectedOutput, int numSamples, int numClasses,
+void networkTrainClassifier(NeuralNetwork *nn, double *trainInputs, double *expectedOutput, int numSamples, int numClasses,
             double learningRate, int iterationsNumber, int batchSize, double decay) {
     double *encodedOutput = oneHotEncode(expectedOutput, numSamples, numClasses);
     double initialLr = learningRate;
@@ -208,10 +188,26 @@ void nnTrain(NeuralNetwork *nn, double *trainInputs, double *expectedOutput, int
         printf("Epoch %d - ", epoch);
         nnGradientDescent(nn, trainInputs, encodedOutput, numSamples, currentLr, batchSize);
         currentLr = initialLr / (1 + decay * epoch);
+        
         fflush(stdout);
     }
 
     free(encodedOutput);
+}
+
+
+void networkTrain(NeuralNetwork *nn, double *trainInputs, double *expectedOutput, int numSamples,
+            double learningRate, int iterationsNumber, int batchSize, double decay) {
+    double initialLr = learningRate;
+    double currentLr = initialLr;
+
+    for (int epoch = 0; epoch <= iterationsNumber; epoch++) {
+        //printf("Epoch %d - ", epoch);
+        nnGradientDescent(nn, trainInputs, expectedOutput, numSamples, currentLr, batchSize);
+        currentLr = initialLr / (1 + decay * epoch);
+        
+        fflush(stdout);
+    }
 }
 
 
@@ -275,4 +271,48 @@ void networkDestroy(NeuralNetwork **nn) {
     free((*nn)->lossFunction);
     free(*nn);
     *nn = NULL;
+}
+
+
+void networkCopyWeights(NeuralNetwork *dest, NeuralNetwork *src) {
+    if (dest->nbLayers != src->nbLayers) {
+        printf("Erreur: Les réseaux n'ont pas le même nombre de couches.\n");
+        return;
+    }
+    
+    for (int i = 0; i < dest->nbLayers; i++) {
+        layerCopyWeights(dest->layers[i], src->layers[i]);
+    }
+}
+
+
+void networkSave(NeuralNetwork *nn, const char *filepath) {
+    FILE *file = fopen(filepath, "w");
+    if (!file) {
+        printf("Erreur: Impossible d'ouvrir %s pour la sauvegarde.\n", filepath);
+        return;
+    }
+
+    for (int i = 0; i < nn->nbLayers; i++) {
+        layerSave(nn->layers[i], file);
+    }
+
+    fclose(file);
+    printf("Modele sauvegarde en format TEXTE avec succes dans : %s\n", filepath);
+}
+
+
+void networkLoad(NeuralNetwork *nn, const char *filepath) {
+    FILE *file = fopen(filepath, "r");
+    if (!file) {
+        printf("Erreur: Impossible d'ouvrir %s pour le chargement.\n", filepath);
+        return;
+    }
+
+    for (int i = 0; i < nn->nbLayers; i++) {
+        layerLoad(nn->layers[i], file);
+    }
+
+    fclose(file);
+    printf("Modele charge avec succes depuis : %s\n", filepath);
 }

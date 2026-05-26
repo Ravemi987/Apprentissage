@@ -31,7 +31,8 @@ static void scanActivationFunction(Layer *l, char *activationFun) {
     if (strcmp(activationFun, "sigmoid") == 0) l->activationFunction = getSigmoidActivation();
     else if (strcmp(activationFun, "relu") == 0) l->activationFunction = getReLUActivation();
     else if (strcmp(activationFun, "silu") == 0) l->activationFunction = getSiLUActivation();
-    else l->activationFunction = getSoftMaxActivation();
+    else if (strcmp(activationFun, "softmax") == 0) l->activationFunction = getSoftMaxActivation();
+    else l->activationFunction = getLinearActivation();
 }
 
 
@@ -45,12 +46,16 @@ static void saveActivations(Layer *l, double *inputs, int batchSize) {
 }
 
 
+// Initialisation de He
 static void initWeights(Layer *l) {
+    double limit = sqrt(6.0 / (double)l->featuresNumber);
+
     for (int neuron = 0; neuron < l->neuronsNumber; ++neuron) {
-        l->biases[neuron] = ((double)rand() / (double)RAND_MAX) * 2.0 - 1.0;
+        l->biases[neuron] = 0.0; 
 
         for (int feature = 0; feature < l->featuresNumber; ++feature) {
-            l->weights[neuron * l->featuresNumber + feature] = ((double)rand() / (double)RAND_MAX) * 2.0 - 1.0;
+            double rand_val = ((double)rand() / (double)RAND_MAX) * 2.0 - 1.0;
+            l->weights[neuron * l->featuresNumber + feature] = rand_val * limit;
         }
     }
 }
@@ -225,14 +230,24 @@ void layerUpdateWeights(Layer *l, double learningRate, int datasetSize) {
         for (int feature = 0; feature < l->featuresNumber; feature++) {
             int index = neuron * l->featuresNumber + feature;
 
-            l->weights[index] -= learningRate * (l->weightsGradients[index] / datasetSize);
+        double grad = l->weightsGradients[index] / datasetSize;
+            
+            if (grad > CLIP_LIMIT) grad = CLIP_LIMIT;
+            if (grad < -CLIP_LIMIT) grad = -CLIP_LIMIT;
+
+            l->weights[index] -= learningRate * grad;
             l->weightsGradients[index] = 0.0;
         }
     }
     // On separe les boucles
     #pragma omp parallel for    
     for (int neuron = 0; neuron < l->neuronsNumber; neuron++) {
-        l->biases[neuron] -= learningRate * (l->biasesGradients[neuron] / datasetSize);
+    double bias_grad = l->biasesGradients[neuron] / datasetSize;
+        
+        if (bias_grad > CLIP_LIMIT) bias_grad = CLIP_LIMIT;
+        if (bias_grad < -CLIP_LIMIT) bias_grad = -CLIP_LIMIT;
+
+        l->biases[neuron] -= learningRate * bias_grad;
         l->biasesGradients[neuron] = 0.0;
     }
 }
@@ -250,4 +265,44 @@ void layerDestroy(Layer **l) {
     free((*l)->weightsGradients);
     free((*l)->biasesGradients);
     *l = NULL;
+}
+
+
+void layerCopyWeights(Layer *dest, Layer *src) {
+    if (dest->featuresNumber != src->featuresNumber || dest->neuronsNumber != src->neuronsNumber) {
+        printf("Erreur: Dimensions des couches incompatibles pour la copie.\n");
+        return;
+    }
+    
+    int nbWeights = dest->featuresNumber * dest->neuronsNumber;
+    memcpy(dest->weights, src->weights, nbWeights * sizeof(double));
+    memcpy(dest->biases, src->biases, dest->neuronsNumber * sizeof(double));
+}
+
+
+void layerSave(Layer *l, FILE *file) {
+    int nbWeights = l->featuresNumber * l->neuronsNumber;
+    
+    for (int i = 0; i < nbWeights; i++) {
+        fprintf(file, "%.8f ", l->weights[i]);
+    }
+    fprintf(file, "\n");
+
+    for (int i = 0; i < l->neuronsNumber; i++) {
+        fprintf(file, "%.8f ", l->biases[i]);
+    }
+    fprintf(file, "\n");
+}
+
+
+void layerLoad(Layer *l, FILE *file) {
+    int nbWeights = l->featuresNumber * l->neuronsNumber;
+    
+    for (int i = 0; i < nbWeights; i++) {
+        if (fscanf(file, "%lf", &l->weights[i]) != 1) {}
+    }
+    
+    for (int i = 0; i < l->neuronsNumber; i++) {
+        if (fscanf(file, "%lf", &l->biases[i]) != 1) {}
+    }
 }

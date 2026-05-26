@@ -13,6 +13,8 @@
 #include "activation.h"
 #include "loss.h"
 
+#define CLIP_LIMIT 1.0
+
 typedef struct s_dl_layer Layer;
 
 // Alloue de la mémoire !
@@ -38,5 +40,11 @@ double *layerBackPropagation(Layer *l, Layer *nextLayer, double *nextGradients, 
 void layerUpdateWeights(Layer *l, double learningRate, int datasetSize);
 
 void layerDestroy(Layer **l);
+
+void layerCopyWeights(Layer *dest, Layer *src);
+
+void layerSave(Layer *l, FILE *file);
+
+void layerLoad(Layer *l, FILE *file);
 
 #endif

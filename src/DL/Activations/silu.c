@@ -3,12 +3,13 @@
 
 
 static double siluApply(double z) {
-    return z > 0 ? z : 0;
+    return z / (1.0 + exp(-z));
 }
 
 
 static double siluDerivative(double z) {
-    return z > 0 ? 1 : 0;
+    double sig = 1.0 / (1.0 + exp(-z));
+    return sig + z * sig * (1.0 - sig);
 }
 
 

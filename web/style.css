@@ -9,48 +9,101 @@ body {
     align-items: center;
 }
 
-.header { text-align: center; margin-bottom: 20px; }
+.header { text-align: center; margin-bottom: 25px; }
 h1 { margin: 0 0 5px 0; color: #89b4fa; }
 p { color: #a6adc8; margin: 0; }
 h3 { color: #bac2de; font-size: 16px; text-align: left; margin-top: 0; margin-bottom: 15px; }
 
+/* Agencement en deux colonnes */
+.main-content {
+    display: flex;
+    flex-direction: row;
+    gap: 30px;
+    align-items: flex-start;
+    justify-content: center;
+    max-width: 1200px;
+}
+
 .dashboard {
     display: flex;
-    flex-direction: column; /* Empilement vertical ! */
-    align-items: center;
-    gap: 30px;
-    margin-bottom: 20px;
-    width: 100%;
+    flex-direction: column; 
+    gap: 20px;
 }
 
 .view-panel {
-    position: relative;
     background-color: #181825;
     padding: 20px;
     border-radius: 8px;
     border: 2px solid #313244;
     box-shadow: 0 8px 32px rgba(0,0,0,0.5);
-    width: 800px; /* Force la largeur pour correspondre au canvas */
-    padding-bottom: 30px;
+    width: 800px;
+    padding-bottom: 20px;
 }
 
 canvas {
     background-color: #11111b;
     border: 1px solid #45475a;
     border-radius: 4px;
-    display: block; /* Évite les marges fantômes */
+    display: block;
     cursor: crosshair;
+}
+
+/* Panneau latéral droit */
+.side-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    width: 250px;
 }
 
 .legend {
     background-color: #181825;
-    padding: 15px 25px;
+    padding: 20px;
     border-radius: 8px;
     border: 1px solid #313244;
-    width: 800px;
     box-sizing: border-box;
 }
 
-.legend-items { display: flex; justify-content: space-around; }
+.legend-items { 
+    display: flex; 
+    flex-direction: column; /* On empile la légende pour qu'elle tienne sur le côté */
+    gap: 15px; 
+}
 .legend-item { display: flex; align-items: center; font-size: 14px; }
-.color-box { width: 15px; height: 15px; border-radius: 3px; margin-right: 10px; display: inline-block; }
+
+.color-box { 
+    width: 15px; 
+    height: 15px; 
+    border-radius: 3px; 
+    margin-right: 10px; 
+    display: inline-block; 
+    box-sizing: border-box;
+}
+
+/* Style du bouton */
+.btn-primary {
+    padding: 15px;
+    background-color: #a6e3a1;
+    color: #1e1e2e;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: bold;
+    font-size: 15px;
+    transition: all 0.2s;
+    box-shadow: 0 4px 15px rgba(166, 227, 161, 0.15);
+    text-align: center;
+    line-height: 1.4;
+}
+
+.btn-primary:hover {
+    background-color: #94e289;
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(166, 227, 161, 0.3);
+}
+
+.btn-primary small {
+    font-size: 12px;
+    font-weight: normal;
+    opacity: 0.8;
+}
