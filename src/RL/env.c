@@ -112,28 +112,19 @@ double getReward(Env *env) {
     World *w = env->physical_world;
     Drone *d = w->drone;
     
-    // 1. Calcul du score de signal (Objectif principal)
     double average_signal_norm = 0.0;
     double min_signal_norm = getSignalMetrics(w, d, &average_signal_norm);
     double signal_score = (min_signal_norm * 0.5) + (average_signal_norm * 0.5);
     
-    // Récompense de base (0.1 pour survivre) + récompense linéaire plafonnée pour le signal.
-    // On évite pow() ici pour ne pas créer d'incitation disproportionnée à raser le sol.
     double base_reward = 0.1 + (signal_score * 3.0); 
     
-    // 2. Calcul des pénalités strictes (Sécurité)
-    // On récupère les valeurs brutes des pénalités (qui étaient calculées dans tes autres fonctions)
     double obs_pen = fabs(getObstaclePenalty(w, d)); 
     double hum_pen = fabs(getHumanProximityPenalty(w, d));
     
-    // Nouvelle pénalité fatale d'altitude : s'il vole sous 2 mètres, on lui soustrait des points
-    // Plus il s'approche de 0, plus la pénalité est énorme (jusqu'à -4.0)
-    double altitude_pen = 0.0;
-    if (d->z < 2.0) {
-        altitude_pen = 2.0 * (2.0 - d->z); 
-    }
+    double danger_zone = clamp(5.0 - d->z, 0.0, 5.0); 
 
-    // 3. Pénalités d'éloignement (Bords de carte et plafond)
+    double altitude_pen = pow(danger_zone, 2) * 0.2;
+
     double bounds_pen = 0.0;
     double margin = 10.0;
     if (d->x < margin) bounds_pen += (margin - d->x) * 0.05;
@@ -141,14 +132,10 @@ double getReward(Env *env) {
     if (d->y < margin) bounds_pen += (margin - d->y) * 0.05;
     if (d->y > w->height - margin) bounds_pen += (d->y - (w->height - margin)) * 0.05;
     
-    // On pénalise s'il vole trop haut (inutile pour le signal WiFi)
     if (d->z > 35.0) bounds_pen += (d->z - 35.0) * 0.05;
 
-    // 4. Calcul de la récompense totale soustractive
-    // Les pénalités annuleront instantanément tout gain de signal
     double total_reward = base_reward - (obs_pen * 2.0) - (hum_pen * 2.0) - altitude_pen - bounds_pen;
 
-    // Optionnel : borner la récompense maximale/minimale par step (pour la stabilité du réseau)
     return clamp(total_reward, -5.0, 5.0);
 }
 
