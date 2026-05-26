@@ -6,9 +6,9 @@
 
 #include "simulation.h"
 
-#define GRID_SIZE 4
+#define GRID_SIZE 8
 #define MAX_CLOSEST_OBSTACLES 3
-#define NB_STATES (GRID_SIZE * GRID_SIZE + MAX_CLOSEST_OBSTACLES * 3 + 11)
+#define NB_STATES (GRID_SIZE * GRID_SIZE + MAX_CLOSEST_OBSTACLES * 3 + 12)
 #define FRAME_SKIP 10   // Frame Skipping pour laisser à la physique le temps de calculer les mouvements de l'IA
 
 

@@ -176,12 +176,17 @@ void handleCommand(Drone *d, int action) {
     double yaw_increment = 0.02;
     double current_angle_limit = ANGLE_LIMIT;
 
-    if (action == ENGINE_UP)            d->target_thrust = (M * G) + thrust_boost; // Monter
-    if (action == ENGINE_DOWN)          d->target_thrust = (M * G) - thrust_boost; // Descendre
     if (action == ENGINE_PITCH_LEFT)    d->target_pitch = current_angle_limit;   // Pitch avant
     if (action == ENGINE_PITCH_RIGHT)   d->target_pitch = -current_angle_limit;  // Pitch arrière
     if (action == ENGINE_ROLL_LEFT)     d->target_roll = -current_angle_limit;   // Roll gauche
     if (action == ENGINE_ROLL_RIGHT)    d->target_roll = current_angle_limit;    // Roll droite
+
+    // Augmentation de la pousée de base 
+    double base_thrust = (M * G) / (cos(d->target_pitch) * cos(d->target_roll));
+    d->target_thrust = base_thrust;
+
+    if (action == ENGINE_UP)            d->target_thrust = base_thrust + thrust_boost; // Monter
+    if (action == ENGINE_DOWN)          d->target_thrust = base_thrust - thrust_boost; // Descendre
 
     if (action == ENGINE_YAW_LEFT) {
         d->target_yaw -= yaw_increment;
