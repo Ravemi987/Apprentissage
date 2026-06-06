@@ -10,8 +10,8 @@ void fillUsersGrid(Env *env, double *state_out) {
     int num_cells = GRID_SIZE * GRID_SIZE;
     for (int i = 0; i < num_cells; i++) state_out[i] = 0.0; 
 
-    // On définit la portée visuelle du radar du drone (ex: il voit sur 40m autour de lui)
-    double radar_range = 150.0; 
+    // On définit la portée visuelle du radar du drone (ici infinie après tests)
+    double radar_range = MAX(w->width, w->height); 
     
     // Si GRID_SIZE = 4, on a une grille de 4x4 centrée sur le drone.
     // Chaque case du radar représente 20m x 20m (car diamètre de 80m / 4 = 20)

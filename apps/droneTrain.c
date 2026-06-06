@@ -3,7 +3,7 @@
 #include <string.h>
 #include <time.h>
 #include <unistd.h>
-#include <sys/stat.h> // Pour vérifier si le fichier existe
+#include <sys/stat.h>
 #include "simulation.h"
 #include "model.h"
 #include <generation.h>

@@ -4,15 +4,15 @@
 
 Config defaultConfig(void) {
     return (Config){
-        .gamma = 0.99,
+        .gamma = 0.95,
         .epsilon = 1.0,
         .epsilon_min = 0.0,
-        .epsilon_decay = 0.004,
+        .epsilon_decay = 0.002,
         .epochs = 1500,
         .max_steps = 2000,
-        .update_freq = 1500,
+        .update_freq = 5000,
         .batch_size = 128,
-        .learning_rate = 1e-4,
+        .learning_rate = 5e-4,
         .decay = 0.0
     };
 }

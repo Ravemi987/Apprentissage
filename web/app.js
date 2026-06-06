@@ -3,14 +3,13 @@ const ctxProfile = canvasProfile.getContext('2d');
 const canvasTop = document.getElementById('canvasTop');
 const ctxTop = canvasTop.getContext('2d');
 
-// Dimensions physiques (Synchronisées avec ton C)
+// Dimensions physiques
 const physSpanX = 200; // Axe X physique = Avancement (0 à 200)
-const physSpanY = 200; // Axe Y physique = Gauche/Droite (0 à 200) -> MAJ
+const physSpanY = 200; // Axe Y physique = Gauche/Droite (0 à 200)
 const physSpanZ = 100; // Axe Z physique = Altitude (0 à 100)
 const gridSpacing = 20;
 const trail = [];
 
-/* --- MAGIE DU MAPPING (Correction de l'inversion) --- */
 
 // En physique : Y augmente vers la gauche. 
 // En visuel : On veut que 0 soit à gauche et 200 à droite.
@@ -56,7 +55,6 @@ function drawGridProfile() {
     ctxProfile.font = "bold 13px 'Segoe UI'"; ctxProfile.fillStyle = "#89b4fa";
     ctxProfile.fillText("Z (Altitude)", 15, 25);
     
-    // Aligné proprement au centre bas pour éviter les collisions avec les chiffres de la grille
     ctxProfile.textAlign = "center";
     ctxProfile.fillText("Y (Gauche/Droite)", canvasProfile.width / 2, canvasProfile.height - 25);
     ctxProfile.textAlign = "left"; // Reset
@@ -100,9 +98,7 @@ function drawViews(data) {
     drawGridProfile();
     drawGridTop();
 
-    // ==========================================
-    // 1. OBSTACLES & SCAN LiDAR
-    // ==========================================
+    // OBSTACLES & SCAN LiDAR
     if (data.obstacles) {
         data.obstacles.forEach(obs => {
             obs.distSq = Math.pow(data.drone.x - obs.x, 2) + Math.pow(data.drone.y - obs.y, 2) + Math.pow(data.drone.z - obs.z, 2);
@@ -118,12 +114,12 @@ function drawViews(data) {
         data.obstacles.forEach(obs => {
             let cxTop = getVisualX(obs.y, canvasTop);
             let cyTop = getVisualY(obs.x, canvasTop);
-            let visualRadius = (obs.radius / physSpanY) * canvasTop.width; // S'adapte au nouveau physSpanY
+            let visualRadius = (obs.radius / physSpanY) * canvasTop.width;
             
             let cxProf = getVisualX(obs.y, canvasProfile);
             let bottomZ = getVisualZ(obs.z, canvasProfile);
             let topZ = getVisualZ(obs.z + obs.height, canvasProfile);
-            let widthProf = (obs.radius * 2 / physSpanY) * canvasProfile.width; // S'adapte au nouveau physSpanY
+            let widthProf = (obs.radius * 2 / physSpanY) * canvasProfile.width;
             let heightProf = bottomZ - topZ;
 
             ctxTop.fillStyle = 'rgba(166, 227, 161, 0.15)'; 
@@ -160,9 +156,7 @@ function drawViews(data) {
         });
     }
 
-    // ==========================================
-    // 2. LIENS WIFI
-    // ==========================================
+    // LIENS WIFI
     data.users.forEach(user => {
         const dist3D = Math.sqrt(
             Math.pow(data.drone.x - user.x, 2) + 
@@ -184,9 +178,7 @@ function drawViews(data) {
         ctxProfile.setLineDash([]); ctxTop.setLineDash([]);
     });
 
-    // ==========================================
-    // 3. TRAÎNÉE DU DRONE
-    // ==========================================
+    // TRAÎNÉE DU DRONE
     ctxProfile.beginPath(); ctxTop.beginPath();
     for (let i = 0; i < trail.length; i++) {
         const p = trail[i];
@@ -200,18 +192,14 @@ function drawViews(data) {
     }
     ctxProfile.stroke(); ctxTop.stroke();
 
-    // ==========================================
-    // 4. UTILISATEURS (Piétons)
-    // ==========================================
+    // UTILISATEURS
     ctxProfile.fillStyle = '#fab387'; ctxTop.fillStyle = '#fab387';
     data.users.forEach(u => {
         ctxProfile.beginPath(); ctxProfile.arc(getVisualX(u.y, canvasProfile), getVisualZ(u.z, canvasProfile), 6, 0, Math.PI*2); ctxProfile.fill();
         ctxTop.beginPath(); ctxTop.arc(getVisualX(u.y, canvasTop), getVisualY(u.x, canvasTop), 6, 0, Math.PI*2); ctxTop.fill();
     });
 
-    // ==========================================
-    // 5. DRONE 
-    // ==========================================
+    // DRONE 
     ctxProfile.save();
     ctxProfile.translate(getVisualX(data.drone.y, canvasProfile), getVisualZ(data.drone.z, canvasProfile));
     ctxProfile.rotate(data.drone.phi);

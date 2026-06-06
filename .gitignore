@@ -1,0 +1,5 @@
+files/drone_wifi_brain.txt
+files/drone_wifi_brain.txt.ckpt
+
+files/*.ckpt
+files/*.txt
