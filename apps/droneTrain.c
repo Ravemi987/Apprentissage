@@ -25,11 +25,11 @@ int main() {
     int depth = 100.0;
 
     int seed = 1234;
-    int num_users = 4;
-    int num_obstacles = 3;
+    int num_users = 1;
+    int num_obstacles = 10;
 
     // Assemblage du monde 3D
-    World w = creationWorld(&d, num_users, num_obstacles, width, height, depth, seed);
+    World w = createWorld(&d, num_users, num_obstacles, width, height, depth, seed);
     
     printf("==================================================\n");
     printf("Création de l'agent DQN pour la Couverture Réseau...\n");

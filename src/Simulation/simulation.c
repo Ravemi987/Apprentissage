@@ -169,38 +169,31 @@ void applyLimits(World *w) {
 void handleCommand(Drone *d, int action) {
     d->target_roll = 0.0;
     d->target_pitch = 0.0;
-    d->target_thrust = M * G;
+    
+    double max_angle = (d->is_autonomous_mode) ? ANGLE_LIMIT : HUMAN_ANGLE_LIMIT; 
+    double thrust_boost = 6.0;
+    double yaw_boost = 0.02;
 
-    // Mode par défaut (autonome)
-    double thrust_boost = 4.0;
-    double yaw_increment = 0.02;
-    double current_angle_limit = ANGLE_LIMIT;
+    // Commandes angulaires
+    if (action == ENGINE_PITCH_LEFT)  d->target_pitch = max_angle;
+    if (action == ENGINE_PITCH_RIGHT) d->target_pitch = -max_angle;
+    if (action == ENGINE_ROLL_LEFT)   d->target_roll = -max_angle;
+    if (action == ENGINE_ROLL_RIGHT)  d->target_roll = max_angle;
 
-    if (action == ENGINE_PITCH_LEFT)    d->target_pitch = current_angle_limit;   // Pitch avant
-    if (action == ENGINE_PITCH_RIGHT)   d->target_pitch = -current_angle_limit;  // Pitch arrière
-    if (action == ENGINE_ROLL_LEFT)     d->target_roll = -current_angle_limit;   // Roll gauche
-    if (action == ENGINE_ROLL_RIGHT)    d->target_roll = current_angle_limit;    // Roll droite
+    if (action == ENGINE_YAW_LEFT)  d->target_yaw -= yaw_boost;
+    if (action == ENGINE_YAW_RIGHT) d->target_yaw += yaw_boost;
+    d->target_yaw = wrapAngle(d->target_yaw);
 
-    // Augmentation de la pousée de base 
-    double pitch_comp = clamp(cos(d->target_pitch), 0.5, 1.0); // Le cosinus ne descendra jamais sous 0.5
-    double roll_comp = clamp(cos(d->target_roll), 0.5, 1.0);
-    double base_thrust = (M * G) / (pitch_comp * roll_comp);
-    double max_safe_thrust = M * G * 1.5;
-    base_thrust = clamp(base_thrust, 0.0, max_safe_thrust);
+    // Altitude Hold 
+    double cos_pitch = clamp(cos(d->target_pitch), 0.5, 1.0);
+    double cos_roll  = clamp(cos(d->target_roll), 0.5, 1.0);
+    double base_thrust = (M * G) / (cos_pitch * cos_roll);
 
-    d->target_thrust = base_thrust;
+    // Gaz verticaux manuels par dessus le Hover
+    if (action == ENGINE_UP)   base_thrust += thrust_boost;
+    if (action == ENGINE_DOWN) base_thrust -= thrust_boost;
 
-    if (action == ENGINE_UP)            d->target_thrust = base_thrust + thrust_boost; // Monter
-    if (action == ENGINE_DOWN)          d->target_thrust = base_thrust - thrust_boost; // Descendre
-
-    if (action == ENGINE_YAW_LEFT) {
-        d->target_yaw -= yaw_increment;
-        d->target_yaw = wrapAngle(d->target_yaw); // Corrige le bug de la toupie
-    }
-    if (action == ENGINE_YAW_RIGHT) {
-        d->target_yaw += yaw_increment;
-        d->target_yaw = wrapAngle(d->target_yaw); // Corrige le bug de la toupie
-    }
+    d->target_thrust = clamp(base_thrust, 0.0, M * G * 1.8);
 }
 
 
@@ -285,7 +278,7 @@ void updateAngularVelocities(World *w, double dt) {
     d->q = d->q + (d->q_dot * dt);
     d->r = d->r + (d->r_dot * dt);
 
-    double true_rot = (d->is_autonomous_mode) ? MAX_ROT : 5.0;
+    double true_rot = (d->is_autonomous_mode) ? MAX_ROT : HUMAN_MAX_ROT;
 
     // Sécurité : plafonner la vitesse de rotation
     if (d->p > true_rot) d->p = true_rot; else if (d->p < -true_rot) d->p = -true_rot;
@@ -302,7 +295,7 @@ void updateVelocities(World *w, double dt) {
     d->y_dot = d->y_dot + (d->y_dot_dot * dt);
     d->z_dot = d->z_dot + (d->z_dot_dot * dt);
 
-    double true_speed = (d->is_autonomous_mode) ? MAX_VELOCITY : 30.0;
+    double true_speed = (d->is_autonomous_mode) ? MAX_VELOCITY : HUMAN_MAX_VELOCITY;
 
     if (d->x_dot > true_speed)  d->x_dot = true_speed;
     if (d->x_dot < -true_speed) d->x_dot = -true_speed;
@@ -326,7 +319,7 @@ void updateOrientation(World *w, double dt) {
     d->psi = wrapAngle(d->psi);
     d->theta = wrapAngle(d->theta);
 
-    double current_angle_limit = (d->is_autonomous_mode) ? ANGLE_LIMIT : 0.50;
+    double current_angle_limit = (d->is_autonomous_mode) ? ANGLE_LIMIT : HUMAN_ANGLE_LIMIT;
 
     if (d->theta > current_angle_limit)  d->theta = current_angle_limit;
     if (d->theta < -current_angle_limit) d->theta = -current_angle_limit;
@@ -369,22 +362,6 @@ void physicsStep(World *w, double dt) {
     updateVelocities(w, dt);
     updatePosition(w, dt);
     applyLimits(w);
-}
-
-
-/* ========= RESEAU ========= */
-
-
-/* Log-Distance Path Loss Model :
- * La puissance du signal WiFi décroît en fonction de la distance
-
- * RSSI = Ptx ​− 10 * n * log10​(d)
- * où Ptx est la puissance d'émission, n le coefficient de perte et d la distance
-*/
-double computeRSSI(Drone *d, User *u) {
-    double dist = sqrt(pow(d->x - u->x, 2) + pow(d->y - u->y, 2) + pow(d->z - u->z, 2)) + 0.001;  // On évite log10(0)
-    if (dist < 1.0) dist = 1.0; // On met une limite de distance, car le 0.001 ne permet pas d'éviter le log(0) en pratique
-    return SIGNAL_BASE_POWER - (10 * PATH_LOSS_EXPONENT * log10(dist));
 }
 
 

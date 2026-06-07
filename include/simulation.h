@@ -26,12 +26,17 @@
 #define PATH_LOSS_EXPONENT 2.0   // Milieu Hertzien
 #define SIGNAL_BASE_POWER -30.0  // -30.0 dBm : Puissance à 1m
 
-// Paramètres qu'on peut modifier pour changer le comportement de l'IA
-#define ANGLE_LIMIT 0.25 // Limite pour éviter les singularités de gimbal lock
-#define MAX_ROT 2.0 // Vitesse de rotation maximale en rad/s
-#define MAX_VELOCITY 15.0
 #define DRAG_COEFF 1.0  // Coefficient de traînée aérodynamique
 #define SAFETY_RADIUS 4.0   // Distance de sécurité avec les objets
+
+#define ANGLE_LIMIT 0.3 // Limite pour éviter les singularités de gimbal lock
+#define MAX_ROT 2.0 // Vitesse de rotation maximale en rad/s
+#define MAX_VELOCITY 15.0
+
+#define HUMAN_ANGLE_LIMIT 0.5
+#define HUMAN_MAX_ROT 5.0
+#define HUMAN_MAX_VELOCITY 30.0
+
 
 #define NB_ACTION 9
 
@@ -65,6 +70,10 @@ typedef struct {
     PIDController pid_yaw;
 
     int is_autonomous_mode;
+
+    double target_x;
+    double target_y;
+    double target_z;
 } Drone;
 
 
@@ -83,6 +92,7 @@ typedef enum {
 
 typedef struct {
     double x, y, z;
+    int is_reached;
 } User;
 
 

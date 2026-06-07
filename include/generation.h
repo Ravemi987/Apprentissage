@@ -21,10 +21,10 @@
  * @param depth Longeur du monde
  * @param seed Seed a utilisere pour la generation aleatoire (reproductiblite possible)
  */
-World creationWorld(Drone *drone, int numUsers, int numObstacles, double width, double height, double depth, int seed);
+World createWorld(Drone *drone, int numUsers, int numObstacles, double width, double height, double depth, int seed);
 
 typedef enum {
-    NO_RAND, LOW_RAND, TOTAL_RAND
+    NO_RAND, TOTAL_RAND
 } Type_maj_w;
 
 /**
@@ -37,11 +37,11 @@ typedef enum {
  */
 void majWorld(World *w, Type_maj_w maj);
 
-void fillUsersGrid(Env *env, double *state_out);
-
 void captureObstacles(Env *env, double *state_out);
 
 void getSafeDroneSpawn(World *w, double *out_x, double *out_y, double *out_z);
+
+World createTutorialWorld(Drone *drone, int numUsers, int numObstacles, double width, double height, double depth);
 
 
 #endif

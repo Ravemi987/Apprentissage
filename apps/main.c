@@ -28,7 +28,7 @@ int main() {
 
 
     Drone d = createDrone(drone_start_x,drone_start_y, drone_start_z);
-    World w = creationWorld(&d, 4, 3, 200.0, 200.0, 100.0, initial_seed);
+    World w = createWorld(&d, 4, 10, 200.0, 200.0, 100.0, initial_seed);
 
     char *json_path = "web/state.json";
     char *model_path = "files/drone_wifi_brain.txt";
@@ -54,7 +54,7 @@ int main() {
 
         if (checkForResetFlag()) {
             printf("\n[WEB INTERFACE] Demande de nouvelle map reçue ! Réinitialisation...\n");
-            majWorld(&w, TOTAL_RAND);            
+            majWorld(&w, NO_RAND);            
             d = createDrone(drone_start_x,drone_start_y, drone_start_z);
             
             resetSimulation(&d, &ticks, &timeout_counter, &current_manual_action, &current_ai_action);

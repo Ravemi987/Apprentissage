@@ -4,9 +4,9 @@
 
 Config defaultConfig(void) {
     return (Config){
-        .gamma = 0.95,
+        .gamma = 0.99,
         .epsilon = 1.0,
-        .epsilon_min = 0.0,
+        .epsilon_min = 0.01,
         .epsilon_decay = 0.002,
         .epochs = 1500,
         .max_steps = 2000,
