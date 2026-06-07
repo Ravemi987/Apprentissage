@@ -75,39 +75,37 @@ void checkTerminal(double *final_reward, double *reward, int *is_terminal, int c
 double getReward(Env *env) {
     World *w = env->physical_world;
     Drone *d = w->drone;
-    
-    // Calcul de la distance euclidienne tridimensionnelle vers la cible stockée dans le drone
-    double dist = sqrt(pow(d->target_x - d->x, 2) + pow(d->target_y - d->y, 2) + pow(d->target_z - d->z, 2));
-    
-    // Normalisation de la distance
-    double max_map_dist = sqrt(pow(w->width, 2) + pow(w->height, 2) + pow(w->depth, 2));
-    double norm_dist = clamp(dist / max_map_dist, 0.0, 1.0);
-    
-    // Base reward : donne une valeur entre 0.1 (très loin) et 5.1 (exactement dessus)
-    double base_reward = 0.1 + pow(1.0 - norm_dist, 2) * 5.0; 
-    
-    // Multiplicateur de sécurité (murs physiques et limites de vol)
-    double safety_multiplier = 1.0;
+    double reward = 0.0;
+
+    // Progress Reward (Le moteur principal de l'apprentissage)
+    double current_dist = sqrt(pow(d->target_x - d->x, 2) + 
+                               pow(d->target_y - d->y, 2) + 
+                               pow(d->target_z - d->z, 2));
+    double dist_diff = env->previous_dist - current_dist;
+    reward += dist_diff * 10.0; 
+    env->previous_dist = current_dist;
+
+    // 2. Time Penalty (Force à bouger)
+    reward -= 0.1;
+
+    // Pénalités Additives de Sécurité (Remplace les Safety Multipliers)
+    // On punit le drone proportionnellement à son intrusion dans la marge
     double margin = 10.0;
-    
-    safety_multiplier *= clamp(d->x / margin, 0.2, 1.0);
-    safety_multiplier *= clamp((w->width - d->x) / margin, 0.2, 1.0);
-    safety_multiplier *= clamp(d->y / margin, 0.2, 1.0);
-    safety_multiplier *= clamp((w->height - d->y) / margin, 0.2, 1.0);
-    
+    if (d->x < margin) reward -= (margin - d->x) * 0.1;
+    if (d->x > (w->width - margin)) reward -= (d->x - (w->width - margin)) * 0.1;
+    if (d->y < margin) reward -= (margin - d->y) * 0.1;
+    if (d->y > (w->height - margin)) reward -= (d->y - (w->height - margin)) * 0.1;
+
     // Sécurité d'altitude
-    safety_multiplier *= clamp((d->z - 2.0) / 3.0, 0.2, 1.0);
-    safety_multiplier *= clamp((35.0 - d->z) / 10.0, 0.2, 1.0);
-    
-    // Intégration des pénalités d'obstacles
-    double obs_pen = fabs(getObstaclePenalty(w, d)); 
-    
-    // On convertit les pénalités cumulées en un multiplicateur d'environnement (de 0.1 à 1.0)
-    double env_multiplier = clamp(1.0 - obs_pen, 0.1, 1.0);
-    safety_multiplier *= env_multiplier;
-    
-    return base_reward * safety_multiplier;
+    if (d->z < 1.0) reward -= (2.0 - d->z) * 1.0; // Très punitif si on s'approche du sol
+    if (d->z > 35.0) reward -= (d->z - 35.0) * 2.0; // Punitif si on vole trop haut
+
+    // Pénalité d'obstacles
+    reward += getObstaclePenalty(w, d);
+
+    return reward;
 }
+
 
 /*
  * Cette fonction définit de quelles informations l'IA a besoin pour savoir ce que doit faire
@@ -146,7 +144,6 @@ void getStateVector(Env *env, double *state_out) {
 /* Fais un pas pour calculer le prochain état physique */
 void envStep(Env *env, double *next_state, double *reward, int *is_terminal, int action_idx) {
     World *w = env->physical_world;
-    double accumulated_reward = 0.0;
     int crashed = 0;
 
     handleCommand(w->drone, action_idx);
@@ -155,13 +152,11 @@ void envStep(Env *env, double *next_state, double *reward, int *is_terminal, int
     for (int i = 0; i < FRAME_SKIP; i++) {
         physicsStep(w, DT);
         crashed = isDroneCrashed(w);
-        accumulated_reward += getReward(env);
         if (crashed) break;
     }
-
+    
     getStateVector(env, next_state);
-    double final_reward = accumulated_reward / FRAME_SKIP; 
-
+    double final_reward = getReward(env);
 
     checkTerminal(&final_reward, reward, is_terminal, crashed, w);
 }
@@ -234,6 +229,10 @@ void resetEnv(Env *env, int current_epoch) {
     }
 
     updateTargetToClosestUser(w);
+
+    env->previous_dist = sqrt(pow(w->drone->target_x - w->drone->x, 2) + 
+                              pow(w->drone->target_y - w->drone->y, 2) + 
+                              pow(w->drone->target_z - w->drone->z, 2));
     
     env->current_reward = 0.0;
     env->is_terminal = 0;

@@ -29,6 +29,8 @@ typedef struct s_rl_env {
     double spawn_drone_x;
     double spawn_drone_y;
     double spawn_drone_z;
+
+    double previous_dist;
 } Env;
 
 
@@ -41,5 +43,7 @@ void resetEnv(Env *env, int current_epoch);
 Env *initEnv(World *w, int max_steps);
 
 void getStateVector(Env *env, double *state_out);
+
+void updateTargetToClosestUser(World *w);
 
 #endif

@@ -15,21 +15,18 @@ int fileExists(const char *filename) {
 }
 
 int main() {
-    srand(time(NULL));
-
-    // Initialisation des structutres
-    Drone d = createDrone(100.0, 100.0, 20.0);
-
     int width = 200.0;
     int height = 200.0;
     int depth = 100.0;
 
-    int seed = 1234;
     int num_users = 1;
     int num_obstacles = 10;
 
+    int seed = 1234;
+    srand(seed);
+
     // Assemblage du monde 3D
-    World w = createWorld(&d, num_users, num_obstacles, width, height, depth, seed);
+    World w = createWorld(num_users, num_obstacles, width, height, depth);
     
     printf("==================================================\n");
     printf("Création de l'agent DQN pour la Couverture Réseau...\n");

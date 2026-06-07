@@ -121,8 +121,6 @@ void physicsStep(World *w, double dt);
 
 int isDroneCrashed(World *w);
 
-double computeRSSI(Drone* d, User* u);
-
 void exportStateToJSON(World *w, const char *filepath);
 
 int collisionWithUser(World *w);

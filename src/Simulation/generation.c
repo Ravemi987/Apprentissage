@@ -60,7 +60,7 @@ static int isPositionFree(double x, double y, double z, double required_radius,
     // Vérification avec les murs et le plafond
     if (x < wall_margin || x > (w->width - wall_margin)) return 0;
     if (y < wall_margin || y > (w->height - wall_margin)) return 0;
-    if (z < 2.0 || z > (w->depth - wall_margin)) return 0;
+    if (z < 0.0 || z > (w->depth - wall_margin)) return 0;
 
     // Vérification avec les obstacles déjà placés
     for (int i = 0; i < num_placed_obs; i++) {
@@ -113,70 +113,6 @@ void placeUsers(User *users, Obstacle3D *obstacles, int numUsers, int numObstacl
 }
 
 
-World createWorld(Drone *drone, int numUsers, int numObstacles, double width, double height, double depth, int seed) {
-    if (seed == -1) {
-        seedUse = time(NULL);
-        srand(seedUse);
-    } else if (seed != 0) {
-        seedUse = seed;
-        srand(seedUse);
-    }
-    
-    User *users = malloc(numUsers * sizeof(User));
-    Obstacle3D *obstacles = malloc(numObstacles * sizeof(Obstacle3D));
-
-    World w = {
-        .drone = drone, .users = users, .numUsers = numUsers,
-        .obstacles = obstacles, .numObstacles = numObstacles,
-        .width = width, .height = height, .depth = depth
-    };
-
-    placeObstacles(users, obstacles, numObstacles, &w);
-    placeUsers(users, obstacles, numUsers, numObstacles, &w);
-
-    return w;
-}
-
-
-/* Génère un monde de tutoriel fixe et réaliste */
-World createTutorialWorld(Drone *drone, int numUsers, int numObstacles, double width, double height, double depth) {
-    User *users = malloc(numUsers * sizeof(User));
-    Obstacle3D *obstacles = malloc(numObstacles * sizeof(Obstacle3D));
-
-    if (numUsers > 0) {
-        users[0] = (User){width - 30.0, height / 2.0, 0.0, 0};
-    }
-
-    int half = numObstacles / 2;
-    for (int i = 0; i < numObstacles; i++) {
-        double x, y, radius, h;
-        if (i < half) {
-            x = 65.0 + (i * 4.0); 
-            y = (height / 2.0) + 15.0 + (i * 5.0);
-            radius = 6.0 + (i * 1.5);  
-            h = 35.0 + (i * 5.0);       
-        } else {
-            int idx = i - half;
-            x = 125.0 + (idx * 4.0);
-            y = (height / 2.0) - 15.0 - (idx * 5.0);
-            radius = 7.0 + (idx * 1.2);
-            h = 40.0 - (idx * 4.0);
-        }
-        obstacles[i] = (Obstacle3D){x, y, 0.0, radius, h};
-    }
-
-    // On utilise directement le pointeur fourni au lieu d'un malloc
-    *drone = createDrone(25.0, height / 2.0, 10.0);
-
-    World w = {
-        .drone = drone, .users = users, .numUsers = numUsers,
-        .obstacles = obstacles, .numObstacles = numObstacles,
-        .width = width, .height = height, .depth = depth
-    };
-    return w;
-}
-
-
 /* Génère des coordonnées d'apparition sécurisées pour le drone */
 void getSafeDroneSpawn(World *w, double *out_x, double *out_y, double *out_z) {
     int valid_spawn = 0;
@@ -208,14 +144,36 @@ void getSafeDroneSpawn(World *w, double *out_x, double *out_y, double *out_z) {
 }
 
 
+World createWorld(int numUsers, int numObstacles, double width, double height, double depth) {
+    User *users = malloc(numUsers * sizeof(User));
+    Obstacle3D *obstacles = malloc(numObstacles * sizeof(Obstacle3D));
+
+    World w = {
+        .drone = NULL, .users = users, .numUsers = numUsers,
+        .obstacles = obstacles, .numObstacles = numObstacles,
+        .width = width, .height = height, .depth = depth
+    };
+
+    placeObstacles(users, obstacles, numObstacles, &w);
+    placeUsers(users, obstacles, numUsers, numObstacles, &w);
+
+    double spawn_x, spawn_y, spawn_z;
+    getSafeDroneSpawn(&w, &spawn_x, &spawn_y, &spawn_z);
+
+    w.drone = malloc(sizeof(Drone));
+    *(w.drone) = createDrone(spawn_x, spawn_y, spawn_z);
+
+    return w;
+}
+
+
 /* Mise à jour du monde */
 void majWorld(World *w, Type_maj_w maj){
     if (maj == TOTAL_RAND) {
-        World wBis = createWorld(w->drone, w->numUsers, w->numObstacles, w->width, w->height, w->depth, -1);
+        World wBis = createWorld(w->numUsers, w->numObstacles, w->width, w->height, w->depth);
         free(w->users);
         free(w->obstacles);
         w->obstacles = wBis.obstacles;
         w->users = wBis.users;
     }
 }
-

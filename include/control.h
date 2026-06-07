@@ -21,4 +21,6 @@ void applyCommand(Drone *d, DQNModel *ai, Env *env, long ticks, int current_manu
 
 void updatePhysics(World *w, Drone *d, int *running, long ticks, long max_battery_ticks, int current_ai_action, int current_manual_action);
 
+void checkAndSwitchTarget(World *w);
+
 void exportData(World *w, const char *json_path);

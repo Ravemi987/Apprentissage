@@ -120,6 +120,36 @@ void updatePhysics(World *w, Drone *d, int *running, long ticks, long max_batter
 }
 
 
+void checkAndSwitchTarget(World *w) {
+    Drone *d = w->drone;
+    
+    if (w->numUsers <= 0) return;
+
+    double dist_to_target = sqrt(pow(d->target_x - d->x, 2) + 
+                                 pow(d->target_y - d->y, 2) + 
+                                 pow(d->target_z - d->z, 2));
+
+    if (dist_to_target <= 1.5) {
+        
+        // On cherche quel utilisateur on vient d'atteindre pour le valider
+        for (int i = 0; i < w->numUsers; i++) {
+            if (!w->users[i].is_reached) {
+                // On vérifie la distance horizontale avec l'utilisateur
+                double dist_h = sqrt(pow(w->users[i].x - d->x, 2) + pow(w->users[i].y - d->y, 2));
+                if (dist_h <= 2.0) { 
+                    w->users[i].is_reached = 1;
+                    printf("\n[SUCCES] Utilisateur %d atteint !\n", i);
+                    break; 
+                }
+            }
+        }
+        
+        // On met à jour la cible vers le prochain utilisateur le plus proche
+        updateTargetToClosestUser(w);
+    }
+}
+
+
 void exportData(World *w, const char *json_path) {
     exportStateToJSON(w, json_path);
 }
